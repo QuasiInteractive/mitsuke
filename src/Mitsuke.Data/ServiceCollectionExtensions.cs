@@ -21,6 +21,9 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISheetReportStore, PostgresSheetReportStore>();
         services.AddSingleton<IReadQueries, PostgresReadQueries>();
         services.AddSingleton<IBidRequestStore, PostgresBidRequestStore>();
+        services.AddSingleton<IUserStore, PostgresUserStore>();
+        services.AddSingleton<IUserWatchlistStore, PostgresUserWatchlistStore>();
+        services.AddSingleton<IFeedbackStore, PostgresFeedbackStore>();
         return services;
     }
 }

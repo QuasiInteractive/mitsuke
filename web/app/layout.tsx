@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
+import { UserMenu } from "@/components/UserMenu";
 import { Inter, Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
 
@@ -24,8 +26,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             </span>
             <span className="mt-1 text-[9px] font-medium tracking-[0.18em] whitespace-nowrap text-faint sm:text-[10px] sm:tracking-[0.25em]">JAPANESE CARS — AUSTRALIAN ROADS</span>
           </Link>
-          <nav className="text-sm text-muted">
+          <nav className="flex items-center gap-1 text-sm text-muted">
             <Link href="/" className="rounded-full px-3 py-1.5 hover:bg-raised hover:text-text">Matches</Link>
+            <Suspense fallback={<span className="w-16" />}>
+              <UserMenu />
+            </Suspense>
           </nav>
         </header>
         <main className="mx-auto max-w-6xl px-4 pb-32 sm:px-6">{children}</main>

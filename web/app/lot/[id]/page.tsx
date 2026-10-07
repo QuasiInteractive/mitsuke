@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getLot, type LotView } from "@/lib/api";
+import { getLot, getMyFeedback, type LotView } from "@/lib/api";
+import { getUser } from "@/lib/supabase/server";
 import { day, km, money, shortDate } from "@/lib/format";
 import { Gallery } from "@/components/Gallery";
 import { Countdown } from "@/components/Countdown";
@@ -24,8 +25,9 @@ export default function LotPage({ params }: PageProps<"/lot/[id]">) {
 }
 
 async function Lot({ id }: { id: string }) {
-  const lot = await getLot(id);
+  const [lot, user] = await Promise.all([getLot(id), getUser()]);
   if (!lot) notFound();
+  const feedback = user ? await getMyFeedback(user.accessToken, lot.id) : null;
 
   return (
     <>
@@ -55,7 +57,13 @@ async function Lot({ id }: { id: string }) {
           </p>
         </div>
       </div>
-      <BidBar lotId={lot.id} title={lot.title} openingBidJpy={lot.openingBid?.currency === "JPY" ? lot.openingBid.amount : null} />
+      <BidBar
+        lotId={lot.id}
+        title={lot.title}
+        openingBidJpy={lot.openingBid?.currency === "JPY" ? lot.openingBid.amount : null}
+        signedIn={user !== null}
+        feedback={feedback?.kind ?? null}
+      />
     </>
   );
 }

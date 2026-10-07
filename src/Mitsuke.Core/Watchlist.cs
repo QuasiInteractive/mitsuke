@@ -29,5 +29,8 @@ public sealed record Watchlist
 
     public bool IsActive { get; init; } = true;
 
+    /// <summary>The user it belongs to; null for system/demo watchlists.</summary>
+    public Guid? OwnerId { get; init; }
+
     public SourceQuery ToSourceQuery() => new(Make, Model, YearFrom, YearTo);
 }

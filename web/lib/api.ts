@@ -110,3 +110,37 @@ async function get<T>(path: string): Promise<T | null> {
 export const getLot = (id: string) => get<LotView>(`/api/lots/${encodeURIComponent(id)}`);
 export const getMatches = async () => (await get<LotCard[]>("/api/matches?limit=24")) ?? [];
 export const getWatchlists = async () => (await get<WatchlistSummary[]>("/api/watchlists")) ?? [];
+
+// ---- Signed-in calls: the user's Supabase access token goes to Mitsuke.Api, which verifies it. ----
+
+export type FeedbackKind = "Watching" | "NotForMe";
+export type LotFeedback = { listingId: string; kind: FeedbackKind; reason: string | null };
+export type MyWatchlist = WatchlistSummary & {
+  watchlist: WatchlistSummary["watchlist"] & {
+    isActive: boolean;
+    yearFrom: number | null;
+    yearTo: number | null;
+    maxMileageKm: number | null;
+    minGrade: number | null;
+  };
+};
+
+async function getAs<T>(token: string, path: string): Promise<T | null> {
+  const res = await fetch(`${API_URL}${path}`, { cache: "no-store", headers: { authorization: `Bearer ${token}` } });
+  if (res.status === 404 || res.status === 204) return null;
+  if (!res.ok) throw new Error(`Mitsuke API ${path} returned ${res.status}`);
+  return (await res.json()) as T;
+}
+
+export async function sendAs(token: string, method: "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown) {
+  return fetch(`${API_URL}${path}`, {
+    method,
+    cache: "no-store",
+    headers: { authorization: `Bearer ${token}`, ...(body === undefined ? {} : { "content-type": "application/json" }) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+
+export const getMyWatchlists = async (token: string) => (await getAs<MyWatchlist[]>(token, "/api/me/watchlists")) ?? [];
+export const getMyMatches = async (token: string) => (await getAs<LotCard[]>(token, "/api/me/matches")) ?? [];
+export const getMyFeedback = (token: string, lotId: string) => getAs<LotFeedback>(token, `/api/me/lots/${encodeURIComponent(lotId)}/feedback`);

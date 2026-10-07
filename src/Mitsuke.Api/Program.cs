@@ -1,4 +1,4 @@
-// Mitsuke's read API for the web app (web/), plus the one write: "I want to bid".
+// Mitsuke's API for the web app (web/): public lot views and bid requests, plus /api/me for signed-in people.
 //
 //   dotnet run --project src/Mitsuke.Api        # http://localhost:5107, OpenAPI at /openapi/v1.json
 //
@@ -8,6 +8,7 @@
 using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Mitsuke.Api;
 using Mitsuke.Core;
@@ -30,6 +31,20 @@ builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+// Sign-in is Supabase Auth. Its tokens are ES256-signed; the public keys come from the issuer's OpenID
+// discovery document, so nothing secret is configured here, and key rotation needs no deploy.
+var supabaseUrl = builder.Configuration["SUPABASE_URL"]?.TrimEnd('/');
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o =>
+{
+    o.Authority = $"{supabaseUrl}/auth/v1";
+    o.Audience = "authenticated";
+    o.RequireHttpsMetadata = !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing");
+    o.MapInboundClaims = false; // keep "sub" and "email" as they are in the token
+    // Access tokens live an hour; the default 5-minute grace after expiry is more than clock drift needs.
+    o.TokenValidationParameters.ClockSkew = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddAuthorization();
+
 // Bid requests notify a human, so they're the one endpoint worth protecting from floods.
 builder.Services.AddRateLimiter(o =>
 {
@@ -43,6 +58,8 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseRateLimiter();
 if (app.Environment.IsDevelopment()) app.MapOpenApi();
 
@@ -51,16 +68,19 @@ var api = app.MapGroup("/api");
 api.MapGet("/health", () => TypedResults.Ok(new { status = "healthy" }));
 
 api.MapGet("/lots/{id:guid}", async Task<Results<Ok<LotView>, NotFound>> (Guid id, string? to, LotViewBuilder lots, CancellationToken ct) =>
-    await lots.BuildAsync(id, Destination(to), ct) is { } view ? TypedResults.Ok(view) : TypedResults.NotFound())
+    await lots.BuildAsync(id, MeEndpoints.Destination(to), ct) is { } view ? TypedResults.Ok(view) : TypedResults.NotFound())
     .WithSummary("Everything the lot page shows: photos, landed cost, deal score, decoded sheet, history.");
 
-api.MapGet("/matches", async (Guid? watchlistId, string? to, int? limit, LotViewBuilder lots, CancellationToken ct) =>
-    TypedResults.Ok(await lots.CardsAsync(watchlistId, Destination(to), Math.Clamp(limit ?? 24, 1, 100), ct)))
-    .WithSummary("Recently alerted lots, newest first.");
+api.MapGet("/matches", async (Guid? watchlistId, string? to, int? limit, IReadQueries queries, LotViewBuilder lots, CancellationToken ct) =>
+    TypedResults.Ok(await lots.CardsAsync(
+        await queries.GetRecentMatchesAsync(watchlistId, Math.Clamp(limit ?? 24, 1, 100), ct), MeEndpoints.Destination(to), ct)))
+    .WithSummary("Recent matches from the public demo watchlists, newest first.");
 
 api.MapGet("/watchlists", async (IReadQueries queries, CancellationToken ct) =>
     TypedResults.Ok(await queries.GetWatchlistSummariesAsync(ct)))
-    .WithSummary("Active watchlists with how many matches each has had.");
+    .WithSummary("The public demo watchlists with how many matches each has had.");
+
+api.MapMeEndpoints();
 
 api.MapPost("/lots/{id:guid}/bid-requests",
     async Task<Results<Created<BidRequestCreated>, ValidationProblem, NotFound>> (
@@ -84,6 +104,4 @@ api.MapPost("/lots/{id:guid}/bid-requests",
     .WithSummary("Ask for a partner exporter to bid on this lot. Mitsuke never bids or takes payment.");
 
 app.Run();
-
-static string Destination(string? to) => string.IsNullOrWhiteSpace(to) ? "AU" : to.Trim().ToUpperInvariant();
 

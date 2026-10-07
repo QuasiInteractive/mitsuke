@@ -1,6 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { setFeedback } from "@/app/actions";
+
+type Feedback = "Watching" | "NotForMe" | null;
 
 type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent" } | { kind: "error"; message: string };
 
@@ -8,8 +12,22 @@ type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent" } | { kind
  * The sticky action bar. "I want to bid" asks for a max bid and contact details and passes them to a partner
  * exporter (Mitsuke never bids or takes money). Keep watching / Not for me arrive with accounts.
  */
-export function BidBar({ lotId, title, openingBidJpy }: { lotId: string; title: string; openingBidJpy: number | null }) {
+export function BidBar({
+  lotId,
+  title,
+  openingBidJpy,
+  signedIn,
+  feedback,
+}: {
+  lotId: string;
+  title: string;
+  openingBidJpy: number | null;
+  signedIn: boolean;
+  feedback: Feedback;
+}) {
   const [open, setOpen] = useState(false);
+  const [saving, startSaving] = useTransition();
+  const toggle = (kind: Exclude<Feedback, null>) => startSaving(() => setFeedback(lotId, feedback === kind ? null : kind));
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   async function submit(form: FormData) {
@@ -37,8 +55,26 @@ export function BidBar({ lotId, title, openingBidJpy }: { lotId: string; title: 
           <button onClick={() => setOpen(true)} className="flex-1 rounded-2xl bg-accent px-5 py-3.5 text-base font-semibold shadow-[0_8px_30px_-8px_var(--color-accent)] hover:bg-accent-strong sm:flex-none sm:px-10">
             I want to bid ›
           </button>
-          <button disabled title="Coming with accounts" className="rounded-2xl border border-line px-4 py-3.5 text-sm text-muted opacity-60">♡ Keep watching</button>
-          <button disabled title="Coming with accounts" className="hidden rounded-2xl border border-line px-4 py-3.5 text-sm text-muted opacity-60 sm:block">✕ Not for me</button>
+          {signedIn ? (
+            <>
+              <button
+                disabled={saving}
+                onClick={() => toggle("Watching")}
+                className={`rounded-2xl border px-4 py-3.5 text-sm ${feedback === "Watching" ? "border-accent bg-accent/15 text-text" : "border-line text-muted hover:text-text"}`}
+              >
+                {feedback === "Watching" ? "♥ Watching" : "♡ Keep watching"}
+              </button>
+              <button
+                disabled={saving}
+                onClick={() => toggle("NotForMe")}
+                className={`hidden rounded-2xl border px-4 py-3.5 text-sm sm:block ${feedback === "NotForMe" ? "border-line bg-raised text-text" : "border-line text-muted hover:text-text"}`}
+              >
+                {feedback === "NotForMe" ? "Hidden · undo" : "✕ Not for me"}
+              </button>
+            </>
+          ) : (
+            <Link href="/login" className="rounded-2xl border border-line px-4 py-3.5 text-sm text-muted hover:text-text">♡ Sign in to watch</Link>
+          )}
         </div>
       </div>
 

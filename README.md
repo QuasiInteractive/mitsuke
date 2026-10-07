@@ -21,8 +21,9 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 | Deal score: percentile vs comparable cars, one per physical car, with confidence | ✅ |
 | Runs 24/7 on Azure Functions: timer → `collect` queue → `alerts` queue, retries + poison (dead-letter) queues, health endpoint, OpenTelemetry | ✅ Runs locally on Azurite |
 | Web app: matches + lot page (gallery, landed-cost breakdown, deal score, decoded sheet on a car diagram, countdown, "I want to bid") | ✅ Next.js 16 + Mitsuke.Api |
-| Accounts: sign-in, create watchlists, keep watching / not for me | Next |
-| Email and push notifications | Planned |
+| Accounts: magic-link sign-in (Supabase Auth), your own watchlists with presets, keep watching / not for me | ✅ |
+| Per-person alerts by email and push | Next |
+
 | Auction sheet decoded into plain English via Kensa-ya's partner API; serious red flags lead the alert | ✅ |
 | Bicep IaC, CD, Key Vault, Application Insights in Azure | Planned |
 
@@ -51,6 +52,7 @@ The same `Collector` and `AlertSender` run in-process for `dotnet run -- scan`, 
 - **One engine, two products.** Landed cost is Kensa-ya's engine, vendored unchanged by [`scripts/sync-kensaya-engine.sh`](scripts/sync-kensaya-engine.sh) together with Kensa-ya's golden answers; [`LandedCostParityTests`](tests/Mitsuke.Tests/LandedCostParityTests.cs) fails the build if Mitsuke would quote a different number, to the cent.
 - **A deal score that shows its working.** Each match is ranked against comparable cars (same model code, similar year, mileage and grade; relists collapsed to one car via the `vehicles` table; never compared with itself). It reports how many cars it used and a confidence, and says nothing rather than guess when there are fewer than five. `backfill` seeds comparables from TheCarApi's archive.
 - **Shared brains, private secrets.** Sheet reading is Kensa-ya's paid product, so it is *called*, never copied: Mitsuke posts a sheet URL to Kensa-ya's partner endpoint (bearer key, host allowlist against SSRF) and maps the answer. It runs only for alerts actually going out, is cached per listing (each read is a paid AI call, about US$0.05–0.09), and sits behind its own retry/circuit-breaker pipeline; if Kensa-ya is down, alerts still go out without it.
+- **Auth done the boring, correct way.** Sign-in is Supabase Auth (magic links, no passwords stored by Mitsuke). The API validates its ES256 tokens with stock ASP.NET Core JWT bearer auth, discovering the signing keys from the issuer (no shared secret, rotation needs no deploy). Every `/api/me` query is scoped by the token's subject, and the tests prove a forged, mis-issued, wrong-audience or expired token gets a 401 and that one person can't touch another's watchlists.
 - **Honest data.** Japanese auction prices are opening bids, never sale prices, and `PriceKind` carries that through to the alert text. Unknown values fail filters that need them, so Mitsuke never alerts on a guess. Every alert names its source and carries a disclaimer.
 
 Why things are the way they are: [docs/thecarapi-findings.md](docs/thecarapi-findings.md) covers what the data actually contains, verified against the live API before the schema was designed.
@@ -91,9 +93,12 @@ Set `DISCORD_WEBHOOK_URL` in `.env` to get alerts in Discord instead of the cons
 ### Run the web app
 
 ```bash
-dotnet run --project src/Mitsuke.Api --urls http://localhost:5107   # the API (reads .env)
-cd web && npm install && npm run dev                                # http://localhost:3001
+npx supabase start                                                   # local Supabase Auth (ports 643xx); emails land in Mailpit at :64324
+dotnet run --project src/Mitsuke.Api --urls http://localhost:5107   # the API (reads .env; set SUPABASE_URL=http://127.0.0.1:64321)
+cd web && cp .env.example .env.local && npm install && npm run dev  # http://localhost:3001 (publishable key from `npx supabase status`)
 ```
+
+Supabase's default ports (543xx) collide with Windows' reserved port ranges, hence 643xx in `supabase/config.toml`.
 
 Alerts link to their lot page when `MITSUKE_WEB_URL` is set in `.env`.
 

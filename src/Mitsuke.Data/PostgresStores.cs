@@ -206,7 +206,7 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
                    include_repaired as IncludeRepaired, include_modified as IncludeModified,
                    max_price_amount as MaxPriceAmount, max_price_currency as MaxPriceCurrency,
                    destination as Destination, max_landed_amount as MaxLandedAmount, max_landed_currency as MaxLandedCurrency,
-                   is_active as IsActive
+                   is_active as IsActive, user_id as OwnerId
             from watchlists
             """;
 
@@ -227,6 +227,7 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
             Destination = r.Destination,
             MaxLanded = r.MaxLandedAmount is { } landed && r.MaxLandedCurrency is { } landedCurrency ? new Money(landed, landedCurrency) : null,
             IsActive = r.IsActive,
+            OwnerId = r.OwnerId,
         };
 
     public async Task AddAsync(Watchlist watchlist, CancellationToken cancellationToken = default)
@@ -236,10 +237,10 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
         await conn.ExecuteAsync("""
             insert into watchlists (id, name, make, model, model_codes, year_from, year_to, max_mileage_km, min_grade,
                                     include_repaired, include_modified, max_price_amount, max_price_currency,
-                                    destination, max_landed_amount, max_landed_currency)
+                                    destination, max_landed_amount, max_landed_currency, user_id)
             values (@Id, @Name, @Make, @Model, @ModelCodes, @YearFrom, @YearTo, @MaxMileageKm, @MinGrade,
                     @IncludeRepaired, @IncludeModified, @MaxPriceAmount, @MaxPriceCurrency,
-                    @Destination, @MaxLandedAmount, @MaxLandedCurrency)
+                    @Destination, @MaxLandedAmount, @MaxLandedCurrency, @OwnerId)
             """, new
         {
             watchlist.Id,
@@ -258,6 +259,7 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
             watchlist.Destination,
             MaxLandedAmount = watchlist.MaxLanded?.Amount,
             MaxLandedCurrency = watchlist.MaxLanded?.Currency,
+            watchlist.OwnerId,
         });
     }
 
@@ -280,6 +282,7 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
         public decimal? MaxLandedAmount { get; init; }
         public string? MaxLandedCurrency { get; init; }
         public bool IsActive { get; init; }
+        public Guid? OwnerId { get; init; }
     }
 }
 

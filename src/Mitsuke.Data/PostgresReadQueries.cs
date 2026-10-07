@@ -28,7 +28,9 @@ public sealed class PostgresReadQueries(NpgsqlDataSource db, IWatchlistStore wat
             select a.listing_id, a.watchlist_id, w.name, min(coalesce(a.sent_at, a.created_at)) as alerted_at
             from alerts a
             join watchlists w on w.id = a.watchlist_id
-            where a.status = 'sent' and (@watchlistId::uuid is null or a.watchlist_id = @watchlistId)
+            -- Public view: system/demo watchlists only. A user's matches come from GetUserMatchesAsync.
+            where a.status = 'sent' and w.user_id is null
+              and (@watchlistId::uuid is null or a.watchlist_id = @watchlistId)
             group by a.listing_id, a.watchlist_id, w.name
             order by alerted_at desc
             limit @limit
@@ -36,9 +38,27 @@ public sealed class PostgresReadQueries(NpgsqlDataSource db, IWatchlistStore wat
         return rows.Select(r => new MatchSummary(r.ListingId, r.WatchlistId, r.Name, new DateTimeOffset(DateTime.SpecifyKind(r.AlertedAt, DateTimeKind.Utc)))).ToList();
     }
 
+    public async Task<IReadOnlyList<MatchSummary>> GetUserMatchesAsync(Guid userId, int limit, CancellationToken cancellationToken = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(cancellationToken);
+        var rows = await conn.QueryAsync<(Guid ListingId, Guid WatchlistId, string Name, DateTime AlertedAt)>("""
+            select a.listing_id, a.watchlist_id, w.name, min(coalesce(a.sent_at, a.created_at)) as alerted_at
+            from alerts a
+            join watchlists w on w.id = a.watchlist_id and w.user_id = @userId
+            where a.status = 'sent'
+              and not exists (
+                  select 1 from lot_feedback f
+                  where f.user_id = @userId and f.listing_id = a.listing_id and f.kind = 'not_for_me')
+            group by a.listing_id, a.watchlist_id, w.name
+            order by alerted_at desc
+            limit @limit
+            """, new { userId, limit });
+        return rows.Select(r => new MatchSummary(r.ListingId, r.WatchlistId, r.Name, new DateTimeOffset(DateTime.SpecifyKind(r.AlertedAt, DateTimeKind.Utc)))).ToList();
+    }
+
     public async Task<IReadOnlyList<WatchlistSummary>> GetWatchlistSummariesAsync(CancellationToken cancellationToken = default)
     {
-        var active = await watchlists.GetActiveAsync(cancellationToken);
+        var active = (await watchlists.GetActiveAsync(cancellationToken)).Where(w => w.OwnerId is null).ToList();
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
         var counts = (await conn.QueryAsync<(Guid WatchlistId, int Matches, DateTime Last)>("""
                 select watchlist_id, count(distinct listing_id)::int, max(coalesce(sent_at, created_at))

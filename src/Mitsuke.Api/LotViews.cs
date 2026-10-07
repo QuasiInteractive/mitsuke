@@ -107,10 +107,11 @@ public sealed class LotViewBuilder(
         };
     }
 
-    public async Task<IReadOnlyList<LotCard>> CardsAsync(Guid? watchlistId, string destination, int limit, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<LotCard>> CardsAsync(IEnumerable<MatchSummary> matches, string destination, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(matches);
         var cards = new List<LotCard>();
-        foreach (var match in await queries.GetRecentMatchesAsync(watchlistId, limit, cancellationToken))
+        foreach (var match in matches)
         {
             var listing = await listings.GetAsync(match.ListingId, cancellationToken);
             if (listing is null) continue;
