@@ -18,8 +18,8 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 | CI: build + all tests incl. Postgres on every push (GitHub Actions) | ✅ |
 | Lot details for matches: auction sheet, earlier auction appearances, full gallery | ✅ |
 | Landed cost AU/NZ/US with live exchange rates, "under A$45K landed" watchlists | ✅ Identical to Kensa-ya, proven by 160 golden cases |
-| Deal score | Next |
-| Queue-based pipeline on Azure Functions | Planned |
+| Deal score: percentile vs comparable cars, one per physical car, with confidence | ✅ |
+| Queue-based pipeline on Azure Functions | Next |
 | Kensa-ya sheet decoding, web app, notifications | Planned |
 | Bicep IaC, CD, Key Vault, Application Insights | Planned |
 
@@ -40,6 +40,7 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 - **Idempotent by design.** Re-running a scan never double-alerts: each (watchlist, listing, channel) alert is claimed in Postgres before sending (`INSERT ... ON CONFLICT`), marked sent or failed afterwards, and only failed ones are retried.
 - **Our own price history.** TheCarApi has no Japanese sale prices, so every price *change* is logged per listing, and relisted cars are linked to one `vehicle` by frame number.
 - **One engine, two products.** Landed cost is Kensa-ya's engine, vendored unchanged by [`scripts/sync-kensaya-engine.sh`](scripts/sync-kensaya-engine.sh) together with Kensa-ya's golden answers; [`LandedCostParityTests`](tests/Mitsuke.Tests/LandedCostParityTests.cs) fails the build if Mitsuke would quote a different number, to the cent.
+- **A deal score that shows its working.** Each match is ranked against comparable cars (same model code, similar year, mileage and grade; relists collapsed to one car via the `vehicles` table; never compared with itself). It reports how many cars it used and a confidence, and says nothing rather than guess when there are fewer than five. `backfill` seeds comparables from TheCarApi's archive.
 - **Honest data.** Japanese auction prices are opening bids, never sale prices, and `PriceKind` carries that through to the alert text. Unknown values fail filters that need them, so Mitsuke never alerts on a guess. Every alert names its source and carries a disclaimer.
 
 Why things are the way they are: [docs/thecarapi-findings.md](docs/thecarapi-findings.md) covers what the data actually contains, verified against the live API before the schema was designed.
@@ -66,6 +67,7 @@ dotnet test              # unit + integration tests (starts its own throwaway Po
 
 dotnet run --project src/Mitsuke.Cli -- migrate
 dotnet run --project src/Mitsuke.Cli -- seed
+dotnet run --project src/Mitsuke.Cli -- backfill  # one-off: past lots for the deal score
 dotnet run --project src/Mitsuke.Cli -- scan    # run it twice: the second pass sends nothing new
 ```
 

@@ -10,3 +10,11 @@ public interface IListingSource
 
     IAsyncEnumerable<Listing> SearchAsync(SourceQuery query, CancellationToken cancellationToken = default);
 }
+
+/// <summary>A source with past (ended) listings, used to seed price comparisons. Optional per source.</summary>
+public interface IArchiveSource
+{
+    string Name { get; }
+
+    IAsyncEnumerable<Listing> SearchArchiveAsync(SourceQuery query, CancellationToken cancellationToken = default);
+}

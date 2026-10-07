@@ -77,6 +77,7 @@ public static class ServiceCollectionExtensions
 
         services.AddTransient<IListingSource>(sp => sp.GetRequiredService<TheCarApiSource>());
         services.AddTransient<IListingDetailsSource>(sp => sp.GetRequiredService<TheCarApiSource>());
+        services.AddTransient<IArchiveSource>(sp => sp.GetRequiredService<TheCarApiSource>());
         return services;
     }
 }

@@ -10,7 +10,7 @@ namespace Mitsuke.Sources.TheCarApi;
 
 /// <summary>Japanese auction lots from TheCarApi's <c>japan</c> source. Retries, circuit breaking and rate limiting live on the HttpClient (see <see cref="ServiceCollectionExtensions"/>).</summary>
 public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiOptions> options, TimeProvider clock, ILogger<TheCarApiSource> logger)
-    : IListingSource, IListingDetailsSource
+    : IListingSource, IListingDetailsSource, IArchiveSource
 {
     internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
@@ -19,15 +19,31 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
 
     public string Name => JapanListingMapper.SourceName;
 
-    public async IAsyncEnumerable<Listing> SearchAsync(SourceQuery query, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public IAsyncEnumerable<Listing> SearchAsync(SourceQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
+        return PagedAsync(query, (offset, limit) => BuildSearchUrl(query, offset, limit), cancellationToken);
+    }
+
+    /// <summary>
+    /// Ended lots from TheCarApi's archive (same row shape as search). Their prices are opening bids too:
+    /// the archive is "not a sold-price index". Used to seed comparables for the deal score.
+    /// </summary>
+    public IAsyncEnumerable<Listing> SearchArchiveAsync(SourceQuery query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        return PagedAsync(query, (offset, limit) => BuildSearchUrl(query, offset, limit, "/api/archive/search"), cancellationToken);
+    }
+
+    private async IAsyncEnumerable<Listing> PagedAsync(
+        SourceQuery query, Func<int, int, string> buildUrl, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
         var opts = options.Value;
 
         for (var page = 0; page < opts.MaxPagesPerSearch; page++)
         {
             var offset = page * opts.PageSize;
-            var url = BuildSearchUrl(query, offset, opts.PageSize);
+            var url = buildUrl(offset, opts.PageSize);
 
             using var response = await http.GetAsync(url, cancellationToken);
             var requestId = response.Headers.TryGetValues("X-Request-ID", out var ids) ? ids.FirstOrDefault() : null;
@@ -87,7 +103,7 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
         return details;
     }
 
-    internal static string BuildSearchUrl(SourceQuery query, int offset, int limit)
+    internal static string BuildSearchUrl(SourceQuery query, int offset, int limit, string path = "/api/search")
     {
         var parts = new List<string>
         {
@@ -100,7 +116,7 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
         if (query.YearTo is { } to) parts.Add(string.Create(CultureInfo.InvariantCulture, $"production_year_to={to}"));
         parts.Add(string.Create(CultureInfo.InvariantCulture, $"limit={limit}"));
         parts.Add(string.Create(CultureInfo.InvariantCulture, $"offset={offset}"));
-        return "/api/search?" + string.Join('&', parts);
+        return path + "?" + string.Join('&', parts);
     }
 
     [LoggerMessage(Level = LogLevel.Information, Message = "TheCarApi search offset {Offset}: {Rows} rows of {Total} (request {RequestId})")]

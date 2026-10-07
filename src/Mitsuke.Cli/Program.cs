@@ -3,6 +3,7 @@
 //   dotnet run --project src/Mitsuke.Cli -- migrate   # create/upgrade the schema
 //   dotnet run --project src/Mitsuke.Cli -- seed      # add the demo R32 GT-R watchlist
 //   dotnet run --project src/Mitsuke.Cli -- scan      # one pass: collect -> store -> match -> alert once
+//   dotnet run --project src/Mitsuke.Cli -- backfill  # one-off: load ended lots as deal-score comparables
 //
 // The Azure Functions host replaces this runner later; the pipeline itself lives in Mitsuke.Core.Scanner.
 
@@ -15,9 +16,9 @@ using Mitsuke.Data;
 using Mitsuke.Pricing;
 using Mitsuke.Sources.TheCarApi;
 
-if (args is not [("migrate" or "seed" or "scan") and var command])
+if (args is not [("migrate" or "seed" or "scan" or "backfill") and var command])
 {
-    Console.Error.WriteLine("usage: dotnet run --project src/Mitsuke.Cli -- migrate|seed|scan");
+    Console.Error.WriteLine("usage: dotnet run --project src/Mitsuke.Cli -- migrate|seed|scan|backfill");
     return 2;
 }
 
@@ -37,7 +38,7 @@ builder.Services.AddSingleton<INotifier>(sp =>
     Uri.TryCreate(builder.Configuration["DISCORD_WEBHOOK_URL"], UriKind.Absolute, out var hook)
         ? new DiscordWebhookNotifier(sp.GetRequiredService<IHttpClientFactory>().CreateClient("discord"), hook)
         : new ConsoleNotifier());
-if (command == "scan") builder.Services.AddTheCarApiSource(builder.Configuration); // only scan needs the API key
+if (command is "scan" or "backfill") builder.Services.AddTheCarApiSource(builder.Configuration); // only these need the API key
 
 using var host = builder.Build();
 var services = host.Services;
@@ -62,6 +63,22 @@ switch (command)
 
     case "scan":
         await services.GetRequiredService<Scanner>().RunAsync();
+        break;
+
+    case "backfill":
+        // One-off: load ended lots for each watchlist so the deal score has comparables from day one.
+        var listingStore = services.GetRequiredService<IListingStore>();
+        foreach (var watchlist in await services.GetRequiredService<IWatchlistStore>().GetActiveAsync())
+        foreach (var archive in services.GetServices<IArchiveSource>())
+        {
+            var (stored, added) = (0, 0);
+            await foreach (var listing in archive.SearchArchiveAsync(watchlist.ToSourceQuery()))
+            {
+                stored++;
+                if ((await listingStore.UpsertAsync(listing)).IsNew) added++;
+            }
+            Console.WriteLine($"'{watchlist.Name}' from {archive.Name} archive: {stored} lots, {added} new.");
+        }
         break;
 }
 

@@ -16,6 +16,7 @@ public sealed partial class Scanner(
     IEnumerable<IListingDetailsSource> detailSources,
     IListingDetailsStore detailsStore,
     ILandedCostEstimator landedCost,
+    IComparablesStore comparables,
     INotifier notifier,
     TimeProvider clock,
     ILogger<Scanner> logger)
@@ -65,7 +66,8 @@ public sealed partial class Scanner(
                     {
                         // Details cost one request per car, so they're fetched only for alerts actually going out.
                         var details = await GetDetailsAsync(stored.ListingId, listing.Key, cancellationToken);
-                        await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, details, landed), cancellationToken);
+                        var deal = DealScorer.Score(listing, await comparables.GetCandidatesAsync(listing, cancellationToken: cancellationToken));
+                        await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, details, landed, deal), cancellationToken);
                         await alerts.MarkSentAsync(alertId, cancellationToken);
                         sent++;
                     }
