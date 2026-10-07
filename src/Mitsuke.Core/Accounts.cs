@@ -15,6 +15,8 @@ public interface IUserStore
 {
     /// <summary>Creates the user on first sight (from a verified sign-in token) and keeps the email current.</summary>
     Task<User> EnsureAsync(Guid id, string email, CancellationToken cancellationToken = default);
+
+    Task<User?> GetAsync(Guid id, CancellationToken cancellationToken = default);
 }
 
 public interface IUserWatchlistStore

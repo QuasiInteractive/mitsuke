@@ -15,6 +15,13 @@ public sealed class PostgresUserStore(NpgsqlDataSource db) : IUserStore
             """, new { id, email });
         return new User(id, email);
     }
+
+    public async Task<User?> GetAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(cancellationToken);
+        var email = await conn.QuerySingleOrDefaultAsync<string>("select email from users where id = @id", new { id });
+        return email is null ? null : new User(id, email);
+    }
 }
 
 /// <summary>Every query is scoped by user_id, so one person can never read or change another's watchlists.</summary>

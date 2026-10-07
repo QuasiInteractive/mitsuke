@@ -22,7 +22,8 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 | Runs 24/7 on Azure Functions: timer → `collect` queue → `alerts` queue, retries + poison (dead-letter) queues, health endpoint, OpenTelemetry | ✅ Runs locally on Azurite |
 | Web app: matches + lot page (gallery, landed-cost breakdown, deal score, decoded sheet on a car diagram, countdown, "I want to bid") | ✅ Next.js 16 + Mitsuke.Api |
 | Accounts: magic-link sign-in (Supabase Auth), your own watchlists with presets, keep watching / not for me | ✅ |
-| Per-person alerts by email and push | Next |
+| Per-person email alerts: HTML card (photo, landed cost, deal score, red flags, lot link), every value HTML-encoded; demo lists stay on Discord | ✅ (SMTP: Gmail in production, Mailpit locally) |
+| Phone push notifications | Next |
 
 | Auction sheet decoded into plain English via Kensa-ya's partner API; serious red flags lead the alert | ✅ |
 | Bicep IaC, CD, Key Vault, Application Insights in Azure | Planned |

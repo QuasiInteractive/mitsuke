@@ -22,6 +22,8 @@ public enum AlertOutcome
 public sealed record AlertLinks(Uri WebBaseUrl)
 {
     public Uri LotUrl(Guid listingId) => new(WebBaseUrl, $"lot/{listingId}");
+
+    public Uri ManageUrl => new(WebBaseUrl, "watchlists");
 }
 
 public sealed partial class AlertSender(
@@ -37,7 +39,9 @@ public sealed partial class AlertSender(
     INotifier notifier,
     TimeProvider clock,
     ILogger<AlertSender> logger,
-    AlertLinks? links = null)
+    AlertLinks? links = null,
+    IEmailSender? email = null,
+    IUserStore? users = null)
 {
     /// <summary>Cached details younger than this are reused rather than refetched.</summary>
     public static readonly TimeSpan DetailsMaxAge = TimeSpan.FromHours(24);
@@ -54,7 +58,13 @@ public sealed partial class AlertSender(
             return AlertOutcome.Skipped;
         }
 
-        if (await alerts.TryClaimAsync(watchlist.Id, request.ListingId, notifier.Channel, cancellationToken) is not { } alertId)
+        // A person's own watchlist is emailed to them; system/demo watchlists go to the shared channel (Discord/console).
+        var recipient = watchlist.OwnerId is { } owner && email is not null && users is not null
+            ? await users.GetAsync(owner, cancellationToken)
+            : null;
+        var channel = recipient is null ? notifier.Channel : "email";
+
+        if (await alerts.TryClaimAsync(watchlist.Id, request.ListingId, channel, cancellationToken) is not { } alertId)
             return AlertOutcome.AlreadySent;
 
         try
@@ -65,17 +75,23 @@ public sealed partial class AlertSender(
             var deal = DealScorer.Score(listing, await comparables.GetCandidatesAsync(listing, cancellationToken: cancellationToken));
             var sheet = await GetSheetReportAsync(request.ListingId, details?.CurrentSheet, cancellationToken);
 
-            await notifier.SendAsync(
-                AlertFormatter.Format(watchlist, listing, details, landed, deal, sheet, links?.LotUrl(request.ListingId)), cancellationToken);
+            var lotUrl = links?.LotUrl(request.ListingId);
+            if (recipient is not null)
+                await email!.SendAsync(
+                    AlertEmailFormatter.Format(recipient.Email, watchlist, listing, details, landed, deal, sheet, lotUrl, links?.ManageUrl),
+                    cancellationToken);
+            else
+                await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, details, landed, deal, sheet, lotUrl), cancellationToken);
+
             await alerts.MarkSentAsync(alertId, cancellationToken);
-            LogSent(logger, listing.Key, watchlist.Name, notifier.Channel);
+            LogSent(logger, listing.Key, watchlist.Name, channel);
             return AlertOutcome.Sent;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // CancellationToken.None: recording the failure must happen even if the caller is shutting down.
             await alerts.MarkFailedAsync(alertId, ex.Message, CancellationToken.None);
-            LogSendFailed(logger, ex, listing.Key, notifier.Channel);
+            LogSendFailed(logger, ex, listing.Key, channel);
             throw;
         }
     }
