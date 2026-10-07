@@ -15,7 +15,9 @@ api="$(az webapp list -g "$rg" --query "[?starts_with(name, 'mitsuke-api')].name
 
 echo "== API -> $api"
 dotnet publish "$root/src/Mitsuke.Api" -c Release -o "$out/api" --nologo -v quiet
-(cd "$out/api" && powershell -NoProfile -Command "Compress-Archive -Path * -DestinationPath '$(cygpath -w "$out/api.zip")' -Force")
+# Windows' own tar writes zips with forward-slash paths; PowerShell's Compress-Archive doesn't, which breaks Linux hosts.
+if command -v cygpath >/dev/null; then /c/Windows/System32/tar.exe -a -c -f "$(cygpath -w "$out/api.zip")" -C "$(cygpath -w "$out/api")" .
+else (cd "$out/api" && zip -qr "$out/api.zip" .); fi
 az webapp deploy -g "$rg" -n "$api" --src-path "$out/api.zip" --type zip -o none
 
 echo "== Pipeline -> $functions"
