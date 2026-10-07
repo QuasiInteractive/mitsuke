@@ -26,6 +26,8 @@
     <ProjectReference Include="..\..\src\Mitsuke.Sources.TheCarApi\Mitsuke.Sources.TheCarApi.csproj" />
     <ProjectReference Include="..\..\src\Mitsuke.Data\Mitsuke.Data.csproj" />
     <ProjectReference Include="..\..\src\Mitsuke.Pricing\Mitsuke.Pricing.csproj" />
+    <ProjectReference Include="..\..\src\Mitsuke.Functions\Mitsuke.Functions.csproj" />
+    <ProjectReference Include="..\..\src\Mitsuke.Notifications\Mitsuke.Notifications.csproj" />
   </ItemGroup>
 
   <ItemGroup>

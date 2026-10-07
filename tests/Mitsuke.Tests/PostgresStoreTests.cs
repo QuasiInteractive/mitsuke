@@ -169,6 +169,57 @@ public sealed class PostgresStoreTests(PostgresFixture pg) : IAsyncLifetime
         Assert.Equal(["mileage_km"], relist.Changes);
     }
 
+    [Fact]
+    public async Task A_claim_stuck_in_flight_past_the_expiry_can_be_reclaimed()
+    {
+        var (watchlistId, listingId) = await SeedAsync();
+        var first = await _alerts.TryClaimAsync(watchlistId, listingId, "discord");
+        Assert.Null(await _alerts.TryClaimAsync(watchlistId, listingId, "discord")); // live sender: hands off
+
+        // Simulate the sender dying mid-send long ago.
+        await using (var conn = await pg.Db.OpenConnectionAsync())
+            await conn.ExecuteAsync("update alerts set claimed_at = now() - interval '11 minutes'");
+
+        Assert.Equal(first, await _alerts.TryClaimAsync(watchlistId, listingId, "discord"));
+        Assert.Null(await _alerts.TryClaimAsync(watchlistId, listingId, "discord")); // fresh claim again
+    }
+
+    [Fact]
+    public async Task A_listing_loads_back_with_its_latest_price()
+    {
+        var saved = Lot(Fixtures.BigId, yen: 4_500_000m) with
+        {
+            AuctionHouse = "USS Tokyo",
+            LotNumber = "123",
+            AuctionEndsAt = new DateTimeOffset(2026, 10, 9, 15, 0, 0, TimeSpan.Zero),
+            Attribution = "USS Tokyo auction via TheCarApi",
+        };
+        var id = (await _listings.UpsertAsync(saved)).ListingId;
+        await _listings.UpsertAsync(saved with { Price = new Money(3_980_000m, "JPY"), ObservedAt = saved.ObservedAt.AddDays(1) });
+
+        var loaded = (await _listings.GetAsync(id))!;
+
+        Assert.Equal(saved.Key, loaded.Key);
+        Assert.Equal(new Money(3_980_000m, "JPY"), loaded.Price);
+        Assert.Equal(PriceKind.OpeningBid, loaded.PriceKind);
+        Assert.Equal(saved.AuctionEndsAt, loaded.AuctionEndsAt);
+        Assert.Equal(saved.PhotoUrls, loaded.PhotoUrls);
+        Assert.Equal((saved.Grade!.Raw, saved.MileageKm, saved.FrameNumber, saved.Attribution), (loaded.Grade!.Raw, loaded.MileageKm, loaded.FrameNumber, loaded.Attribution));
+        Assert.Null(await _listings.GetAsync(Guid.NewGuid()));
+    }
+
+    [Fact]
+    public async Task Watchlists_load_by_id_including_paused_ones()
+    {
+        var (watchlistId, _) = await SeedAsync();
+        await using (var conn = await pg.Db.OpenConnectionAsync())
+            await conn.ExecuteAsync("update watchlists set is_active = false");
+
+        Assert.Empty(await _watchlists.GetActiveAsync());
+        Assert.False((await _watchlists.GetAsync(watchlistId))!.IsActive);
+        Assert.Null(await _watchlists.GetAsync(Guid.NewGuid()));
+    }
+
     private async Task<(Guid WatchlistId, Guid ListingId)> SeedAsync()
     {
         var watchlist = new Watchlist { Id = Guid.NewGuid(), Name = "any", Make = "Nissan", Model = "Skyline" };

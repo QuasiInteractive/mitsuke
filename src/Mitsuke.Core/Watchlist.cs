@@ -27,5 +27,7 @@ public sealed record Watchlist
     /// <summary>Budget on the ground in the buyer's currency, compared against the estimate's midpoint.</summary>
     public Money? MaxLanded { get; init; }
 
+    public bool IsActive { get; init; } = true;
+
     public SourceQuery ToSourceQuery() => new(Make, Model, YearFrom, YearTo);
 }

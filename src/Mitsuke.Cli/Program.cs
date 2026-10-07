@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Mitsuke.Cli;
 using Mitsuke.Core;
 using Mitsuke.Data;
+using Mitsuke.Notifications;
 using Mitsuke.Pricing;
 using Mitsuke.Sources.TheCarApi;
 
@@ -32,12 +33,10 @@ builder.Logging.AddFilter("Polly", LogLevel.Warning); // retries and breaker tri
 builder.Services.AddMitsukeData(builder.Configuration["MITSUKE_DB"] ?? "");
 builder.Services.AddMitsukePricing();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<Collector>();
+builder.Services.AddSingleton<AlertSender>();
 builder.Services.AddSingleton<Scanner>();
-builder.Services.AddHttpClient("discord");
-builder.Services.AddSingleton<INotifier>(sp =>
-    Uri.TryCreate(builder.Configuration["DISCORD_WEBHOOK_URL"], UriKind.Absolute, out var hook)
-        ? new DiscordWebhookNotifier(sp.GetRequiredService<IHttpClientFactory>().CreateClient("discord"), hook)
-        : new ConsoleNotifier());
+builder.Services.AddMitsukeNotifications(builder.Configuration);
 if (command is "scan" or "backfill") builder.Services.AddTheCarApiSource(builder.Configuration); // only these need the API key
 
 using var host = builder.Build();

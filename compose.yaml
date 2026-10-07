@@ -17,5 +17,17 @@ services:
       timeout: 3s
       retries: 10
 
+  azurite:
+    # Local emulator for Azure Storage (queues for the Functions pipeline, blobs later).
+    image: mcr.microsoft.com/azure-storage/azurite
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --skipApiVersionCheck
+    ports:
+      - "127.0.0.1:10000:10000" # blob
+      - "127.0.0.1:10001:10001" # queue
+      - "127.0.0.1:10002:10002" # table
+    volumes:
+      - azuritedata:/data
+
 volumes:
   pgdata:
+  azuritedata:

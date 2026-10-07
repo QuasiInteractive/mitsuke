@@ -1,0 +1,21 @@
+{
+  "version": "2.0",
+  "telemetryMode": "OpenTelemetry",
+  "functionTimeout": "00:05:00",
+  "extensions": {
+    "queues": {
+      "maxDequeueCount": 5,
+      "visibilityTimeout": "00:01:00",
+      "batchSize": 4,
+      "newBatchThreshold": 2,
+      "maxPollingInterval": "00:00:10"
+    }
+  },
+  "logging": {
+    "logLevel": {
+      "default": "Information",
+      "Polly": "Warning",
+      "System.Net.Http": "Warning"
+    }
+  }
+}

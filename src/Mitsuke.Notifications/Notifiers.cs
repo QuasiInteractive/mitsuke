@@ -1,15 +1,16 @@
 using System.Net.Http.Json;
 using Mitsuke.Core;
 
-namespace Mitsuke.Cli;
+namespace Mitsuke.Notifications;
 
 /// <summary>Free test channel. The webhook URL is a secret (anyone holding it can post), so it comes from DISCORD_WEBHOOK_URL.</summary>
-internal sealed class DiscordWebhookNotifier(HttpClient http, Uri webhook) : INotifier
+public sealed class DiscordWebhookNotifier(HttpClient http, Uri webhook) : INotifier
 {
     public string Channel => "discord";
 
     public async Task SendAsync(string message, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(message);
         // Discord caps content at 2000 chars; alerts are far shorter, but never fail a send over it.
         var content = message.Length > 2000 ? message[..1997] + "..." : message;
         using var response = await http.PostAsJsonAsync(webhook, new { content }, cancellationToken);
@@ -17,8 +18,8 @@ internal sealed class DiscordWebhookNotifier(HttpClient http, Uri webhook) : INo
     }
 }
 
-/// <summary>Fallback when no webhook is configured: alerts go to the console.</summary>
-internal sealed class ConsoleNotifier : INotifier
+/// <summary>Fallback when no channel is configured: alerts are written to standard output (the console or the Functions log).</summary>
+public sealed class ConsoleNotifier : INotifier
 {
     public string Channel => "console";
 

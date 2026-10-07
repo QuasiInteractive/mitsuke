@@ -32,8 +32,10 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
 
     public Task DisposeAsync() => Task.CompletedTask;
 
-    private Scanner CreateScanner() => new(
-        [_source],
+    private Collector CreateCollector() => new(
+        [_source], new PostgresListingStore(pg.Db), Landed.Estimator, new FakeTimeProvider(Now), NullLogger<Collector>.Instance);
+
+    private AlertSender CreateSender() => new(
         new PostgresListingStore(pg.Db),
         new PostgresWatchlistStore(pg.Db),
         new PostgresAlertLog(pg.Db),
@@ -43,7 +45,9 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
         new PostgresComparablesStore(pg.Db),
         _notifier,
         new FakeTimeProvider(Now),
-        NullLogger<Scanner>.Instance);
+        NullLogger<AlertSender>.Instance);
+
+    private Scanner CreateScanner() => new(CreateCollector(), CreateSender(), new PostgresWatchlistStore(pg.Db), NullLogger<Scanner>.Instance);
 
     private static Listing Lot(string id, string modelCode = "BNR32") => Fixtures.Gtr(b => b.ModelCode = modelCode) with
     {
@@ -60,7 +64,7 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
         var first = await CreateScanner().RunAsync();
         var second = await CreateScanner().RunAsync();
 
-        Assert.Equal(new ScanResult(Watchlists: 1, Seen: 2, New: 2, Matched: 1, Sent: 1, Failed: 0, AlreadyAlerted: 0, DetailsFetched: 1), first);
+        Assert.Equal(new ScanResult(Watchlists: 1, Seen: 2, New: 2, Matched: 1, Sent: 1, Failed: 0, AlreadyAlerted: 0), first);
         Assert.Equal(new ScanResult(Watchlists: 1, Seen: 2, New: 0, Matched: 1, Sent: 0, Failed: 0, AlreadyAlerted: 1), second);
         Assert.Single(_notifier.Sent);
         Assert.Contains("[R32 GT-R]", _notifier.Sent[0], StringComparison.Ordinal);
@@ -98,10 +102,9 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
     {
         _source.Lots = [Lot("gtr-1"), Lot("gts-1", modelCode: "HCR32")];
 
-        var first = await CreateScanner().RunAsync();
+        await CreateScanner().RunAsync();
         await CreateScanner().RunAsync();
 
-        Assert.Equal(1, first.DetailsFetched);
         Assert.Equal(["gtr-1"], _details.Requested); // non-matches and repeat scans cost nothing
         Assert.Contains("Auction sheet available.", _notifier.Sent[0], StringComparison.Ordinal);
     }
@@ -114,8 +117,52 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
 
         var result = await CreateScanner().RunAsync();
 
-        Assert.Equal((1, 0, 0), (result.Sent, result.Failed, result.DetailsFetched));
+        Assert.Equal((1, 0), (result.Sent, result.Failed));
+        Assert.Single(_details.Requested);
         Assert.DoesNotContain("Auction sheet", _notifier.Sent[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Collector_reports_every_match_and_the_sender_decides_what_is_new()
+    {
+        _source.Lots = [Lot("gtr-1")];
+        var watchlist = (await new PostgresWatchlistStore(pg.Db).GetActiveAsync()).Single();
+
+        var first = await CreateCollector().CollectAsync(watchlist);
+        var again = await CreateCollector().CollectAsync(watchlist);
+
+        // The same match is reported both times; only the sender's claim stops a second alert.
+        Assert.Equal(first.Matches, again.Matches);
+        Assert.Equal(AlertOutcome.Sent, await CreateSender().SendAsync(first.Matches[0]));
+        Assert.Equal(AlertOutcome.AlreadySent, await CreateSender().SendAsync(again.Matches[0]));
+        Assert.Single(_notifier.Sent);
+    }
+
+    [Fact]
+    public async Task Sender_skips_stale_requests_for_deleted_listings_or_paused_watchlists()
+    {
+        _source.Lots = [Lot("gtr-1")];
+        var watchlist = (await new PostgresWatchlistStore(pg.Db).GetActiveAsync()).Single();
+        var match = (await CreateCollector().CollectAsync(watchlist)).Matches.Single();
+
+        Assert.Equal(AlertOutcome.Skipped, await CreateSender().SendAsync(match with { ListingId = Guid.NewGuid() }));
+
+        await using (var conn = await pg.Db.OpenConnectionAsync())
+            await Dapper.SqlMapper.ExecuteAsync(conn, "update watchlists set is_active = false");
+        Assert.Equal(AlertOutcome.Skipped, await CreateSender().SendAsync(match));
+        Assert.Empty(_notifier.Sent);
+    }
+
+    [Fact]
+    public async Task Sender_rethrows_failures_so_a_queue_can_redeliver()
+    {
+        _source.Lots = [Lot("gtr-1")];
+        _notifier.FailNext = 1;
+        var watchlist = (await new PostgresWatchlistStore(pg.Db).GetActiveAsync()).Single();
+        var match = (await CreateCollector().CollectAsync(watchlist)).Matches.Single();
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => CreateSender().SendAsync(match));
+        Assert.Equal(AlertOutcome.Sent, await CreateSender().SendAsync(match)); // redelivery succeeds
     }
 
     private sealed class FakeDetails : IListingDetailsSource

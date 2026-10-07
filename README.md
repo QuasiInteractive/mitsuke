@@ -19,24 +19,31 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 | Lot details for matches: auction sheet, earlier auction appearances, full gallery | ✅ |
 | Landed cost AU/NZ/US with live exchange rates, "under A$45K landed" watchlists | ✅ Identical to Kensa-ya, proven by 160 golden cases |
 | Deal score: percentile vs comparable cars, one per physical car, with confidence | ✅ |
-| Queue-based pipeline on Azure Functions | Next |
-| Kensa-ya sheet decoding, web app, notifications | Planned |
-| Bicep IaC, CD, Key Vault, Application Insights | Planned |
+| Runs 24/7 on Azure Functions: timer → `collect` queue → `alerts` queue, retries + poison (dead-letter) queues, health endpoint, OpenTelemetry | ✅ Runs locally on Azurite |
+| Web app, email/push notifications | Planned |
+| Kensa-ya sheet decoding | Next |
+| Bicep IaC, CD, Key Vault, Application Insights in Azure | Planned |
 
 ## Architecture
 
 ```
- collectors (timer)        queue          processors (queue-triggered)              notify
-┌───────────────────┐   ┌───────┐   ┌──────────────────────────────────────┐   ┌──────────────┐
-│ TheCarApi (Japan) │──▶│       │──▶│ normalise → dedupe → match → score   │──▶│ Discord      │
-│ Gmail alert inbox │──▶│ lots  │   │                                      │   │ email / push │
-│ Trade Me          │──▶│       │   │ Postgres: listings, vehicles, prices │   │ SMS (later)  │
-└───────────────────┘   └───────┘   └──────────────────────────────────────┘   └──────────────┘
+ every 10 min            "collect" queue                         "alerts" queue
+┌──────────────────┐   ┌──────────────────────────────────┐   ┌───────────────────────────────────┐
+│ ScheduleCollection│──▶│ Collect (one per watchlist)       │──▶│ SendAlert (one per match)          │──▶ Discord
+│ (timer trigger)   │   │ search sources → upsert listings  │   │ claim once → lot details → landed  │    email / push
+└──────────────────┘   │ → landed cost → match             │   │ cost → deal score → format → send  │    (later)
+                       └──────────────────────────────────┘   └───────────────────────────────────┘
+                          5 tries, then collect-poison            5 tries, then alerts-poison
+
+                Postgres: listings · vehicles · price_observations · listing_details · watchlists · alerts
 ```
+
+The same `Collector` and `AlertSender` run in-process for `dotnet run -- scan`, so the CLI and the cloud share one code path.
 
 - **Swappable sources.** Every provider implements `IListingSource` and emits the same `Listing`. Replacing a provider touches one project.
 - **Resilience on every external call.** The TheCarApi client runs through a Polly pipeline: total timeout → retry with jittered backoff (honours `Retry-After`) → circuit breaker → client-side rate limit → per-attempt timeout. See [`ServiceCollectionExtensions.cs`](src/Mitsuke.Sources.TheCarApi/ServiceCollectionExtensions.cs).
 - **Polite by construction.** A hard page cap per search means a bad filter can never become a bulk crawl, and a sliding-window limiter caps requests per minute even though the key has no server quota.
+- **At-least-once queues, exactly-once alerts.** Storage queues may redeliver, so every stage is safe to repeat: collecting is upserts, and sending is guarded by a claim in Postgres. A claim left `pending` by a sender that died mid-send expires after 10 minutes and is retried; nothing is ever sent twice. Messages that keep failing land in `*-poison` queues for inspection.
 - **Idempotent by design.** Re-running a scan never double-alerts: each (watchlist, listing, channel) alert is claimed in Postgres before sending (`INSERT ... ON CONFLICT`), marked sent or failed afterwards, and only failed ones are retried.
 - **Our own price history.** TheCarApi has no Japanese sale prices, so every price *change* is logged per listing, and relisted cars are linked to one `vehicle` by frame number.
 - **One engine, two products.** Landed cost is Kensa-ya's engine, vendored unchanged by [`scripts/sync-kensaya-engine.sh`](scripts/sync-kensaya-engine.sh) together with Kensa-ya's golden answers; [`LandedCostParityTests`](tests/Mitsuke.Tests/LandedCostParityTests.cs) fails the build if Mitsuke would quote a different number, to the cent.
@@ -53,6 +60,8 @@ Why things are the way they are: [docs/thecarapi-findings.md](docs/thecarapi-fin
 | `src/Mitsuke.Sources.TheCarApi` | TheCarApi adapter: typed `HttpClient`, resilience pipeline, JSON → `Listing` mapping. |
 | `src/Mitsuke.Pricing` | Landed-cost estimates: Kensa-ya's engine and country rules (in `Kensaya/` and `data/`, synced, not edited) behind Mitsuke's `ILandedCostEstimator`, with live ECB exchange rates. |
 | `src/Mitsuke.Data` | Postgres via Npgsql + Dapper. Forward-only SQL migrations in [`Migrations/`](src/Mitsuke.Data/Migrations), applied under an advisory lock. |
+| `src/Mitsuke.Functions` | Azure Functions (isolated, .NET 10): the timer + two queue-triggered stages, `GET /api/health`, OpenTelemetry to Application Insights. |
+| `src/Mitsuke.Notifications` | Delivery channels behind `INotifier` (Discord webhook now; email and push next). |
 | `src/Mitsuke.Cli` | Local runner: `migrate`, `seed`, `scan`. |
 | `tests/Mitsuke.Tests` | xUnit unit tests, plus integration tests against a real Postgres via Testcontainers. Hand-written fixtures (no copied API data; the provider's terms forbid redistributing raw feeds). |
 
@@ -72,6 +81,18 @@ dotnet run --project src/Mitsuke.Cli -- scan    # run it twice: the second pass 
 ```
 
 Set `DISCORD_WEBHOOK_URL` in `.env` to get alerts in Discord instead of the console.
+
+### Run it 24/7 locally (Azure Functions + Azurite)
+
+Needs [Azure Functions Core Tools](https://learn.microsoft.com/azure/azure-functions/functions-run-local) v4.
+
+```bash
+docker compose up -d                          # Postgres + Azurite (local Azure Storage)
+python scripts/local-settings.py              # writes the gitignored local.settings.json from .env
+cd src/Mitsuke.Functions && func start --port 7073
+```
+
+`python scripts/local-settings.py --schedule "0 */1 * * * *"` runs the collection every minute instead of every ten, to watch it work.
 
 ## Rules this project keeps
 

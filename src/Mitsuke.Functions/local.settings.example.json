@@ -1,0 +1,11 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+    "CollectSchedule": "0 */10 * * * *",
+    "MITSUKE_DB": "Host=localhost;Port=5432;Database=mitsuke;Username=mitsuke;Password=",
+    "THECARAPI_KEY": "",
+    "DISCORD_WEBHOOK_URL": ""
+  }
+}

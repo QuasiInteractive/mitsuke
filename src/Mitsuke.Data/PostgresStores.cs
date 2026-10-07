@@ -95,6 +95,86 @@ public sealed class PostgresListingStore(NpgsqlDataSource db) : IListingStore
         return new UpsertResult(row.Id, row.Inserted, priceChanged);
     }
 
+    public async Task<Listing?> GetAsync(Guid listingId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(cancellationToken);
+        var r = await conn.QuerySingleOrDefaultAsync<ListingRow>("""
+            select l.source as Source, l.source_id as SourceId, l.make as Make, l.model as Model, l.model_code as ModelCode,
+                   l.is_modified as IsModified, l.frame_number as FrameNumber, l.year as Year, l.mileage_km as MileageKm,
+                   l.grade_raw as GradeRaw, l.auction_house as AuctionHouse, l.lot_number as LotNumber,
+                   l.auction_ends_at as AuctionEndsAt, l.transmission as Transmission, l.fuel as Fuel,
+                   l.right_hand_drive as RightHandDrive, l.photo_urls as PhotoUrls, l.attribution as Attribution,
+                   l.last_seen_at as LastSeenAt, p.amount as PriceAmount, p.currency as PriceCurrency, p.kind as PriceKind
+            from listings l
+            left join lateral (
+                select amount, currency, kind from price_observations po
+                where po.listing_id = l.id
+                order by po.observed_at desc, po.id desc
+                limit 1
+            ) p on true
+            where l.id = @listingId
+            """, new { listingId });
+
+        if (r is null) return null;
+        return new Listing
+        {
+            Key = new ListingKey(r.Source, r.SourceId),
+            Make = r.Make,
+            Model = r.Model,
+            ModelCode = r.ModelCode,
+            IsModified = r.IsModified,
+            FrameNumber = r.FrameNumber,
+            Year = r.Year,
+            MileageKm = r.MileageKm,
+            Grade = AuctionGrade.Parse(r.GradeRaw),
+            Price = r.PriceAmount is { } amount && r.PriceCurrency is { } currency ? new Money(amount, currency.Trim()) : null,
+            PriceKind = FromDb(r.PriceKind),
+            AuctionHouse = r.AuctionHouse,
+            LotNumber = r.LotNumber,
+            AuctionEndsAt = r.AuctionEndsAt is { } ends ? new DateTimeOffset(DateTime.SpecifyKind(ends, DateTimeKind.Utc)) : null,
+            Transmission = r.Transmission,
+            Fuel = r.Fuel,
+            RightHandDrive = r.RightHandDrive,
+            PhotoUrls = r.PhotoUrls.Select(u => new Uri(u)).ToList(),
+            Attribution = r.Attribution,
+            ObservedAt = new DateTimeOffset(DateTime.SpecifyKind(r.LastSeenAt, DateTimeKind.Utc)),
+        };
+    }
+
+    internal static PriceKind FromDb(string? kind) => kind switch
+    {
+        "opening_bid" => PriceKind.OpeningBid,
+        "asking_price" => PriceKind.AskingPrice,
+        "reported_final" => PriceKind.ReportedFinal,
+        _ => PriceKind.Unknown,
+    };
+
+    private sealed record ListingRow
+    {
+        public string Source { get; init; } = "";
+        public string SourceId { get; init; } = "";
+        public string Make { get; init; } = "";
+        public string Model { get; init; } = "";
+        public string? ModelCode { get; init; }
+        public bool IsModified { get; init; }
+        public string? FrameNumber { get; init; }
+        public int? Year { get; init; }
+        public int? MileageKm { get; init; }
+        public string? GradeRaw { get; init; }
+        public string? AuctionHouse { get; init; }
+        public string? LotNumber { get; init; }
+        public DateTime? AuctionEndsAt { get; init; }
+        public string? Transmission { get; init; }
+        public string? Fuel { get; init; }
+        public bool? RightHandDrive { get; init; }
+        public string[] PhotoUrls { get; init; } = [];
+        public string Attribution { get; init; } = "";
+        public DateTime LastSeenAt { get; init; }
+        public decimal? PriceAmount { get; init; }
+        public string? PriceCurrency { get; init; }
+        public string? PriceKind { get; init; }
+    }
+
     internal static string ToDb(PriceKind kind) => kind switch
     {
         PriceKind.OpeningBid => "opening_bid",
@@ -109,19 +189,29 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
     public async Task<IReadOnlyList<Watchlist>> GetActiveAsync(CancellationToken cancellationToken = default)
     {
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
-        var rows = await conn.QueryAsync<WatchlistRow>("""
+        var rows = await conn.QueryAsync<WatchlistRow>(SelectWatchlists + " where is_active order by created_at");
+        return rows.Select(ToWatchlist).ToList();
+    }
+
+    public async Task<Watchlist?> GetAsync(Guid watchlistId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(cancellationToken);
+        var row = await conn.QuerySingleOrDefaultAsync<WatchlistRow>(SelectWatchlists + " where id = @watchlistId", new { watchlistId });
+        return row is null ? null : ToWatchlist(row);
+    }
+
+    private const string SelectWatchlists = """
             select id as Id, name as Name, make as Make, model as Model, model_codes as ModelCodes,
                    year_from as YearFrom, year_to as YearTo, max_mileage_km as MaxMileageKm, min_grade as MinGrade,
                    include_repaired as IncludeRepaired, include_modified as IncludeModified,
                    max_price_amount as MaxPriceAmount, max_price_currency as MaxPriceCurrency,
-                   destination as Destination, max_landed_amount as MaxLandedAmount, max_landed_currency as MaxLandedCurrency
+                   destination as Destination, max_landed_amount as MaxLandedAmount, max_landed_currency as MaxLandedCurrency,
+                   is_active as IsActive
             from watchlists
-            where is_active
-            order by created_at
-            """);
+            """;
 
-        return rows.Select(r => new Watchlist
-        {
+    private static Watchlist ToWatchlist(WatchlistRow r) => new()
+    {
             Id = r.Id,
             Name = r.Name,
             Make = r.Make,
@@ -136,8 +226,8 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
             MaxPrice = r.MaxPriceAmount is { } amount && r.MaxPriceCurrency is { } currency ? new Money(amount, currency) : null,
             Destination = r.Destination,
             MaxLanded = r.MaxLandedAmount is { } landed && r.MaxLandedCurrency is { } landedCurrency ? new Money(landed, landedCurrency) : null,
-        }).ToList();
-    }
+            IsActive = r.IsActive,
+        };
 
     public async Task AddAsync(Watchlist watchlist, CancellationToken cancellationToken = default)
     {
@@ -189,23 +279,32 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
         public string Destination { get; init; } = "AU";
         public decimal? MaxLandedAmount { get; init; }
         public string? MaxLandedCurrency { get; init; }
+        public bool IsActive { get; init; }
     }
 }
 
 public sealed class PostgresAlertLog(NpgsqlDataSource db) : IAlertLog
 {
+    /// <summary>
+    /// How long a 'pending' claim is honoured. Must comfortably exceed one send (details fetch + webhook), so a
+    /// slow but live sender is never doubled up on, while a dead one is retried on the next delivery.
+    /// </summary>
+    public static readonly TimeSpan ClaimExpiry = TimeSpan.FromMinutes(10);
+
     public async Task<long?> TryClaimAsync(Guid watchlistId, Guid listingId, string channel, CancellationToken cancellationToken = default)
     {
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
-        // New alert -> claimed. Previously failed -> reclaimed for a retry. Sent or in flight -> no row, so null.
+        // New alert -> claimed. Failed, or pending past the expiry (sender died) -> reclaimed for a retry.
+        // Sent, or in flight within the expiry -> no row, so null.
         return await conn.QuerySingleOrDefaultAsync<long?>("""
             insert into alerts (watchlist_id, listing_id, channel, status)
             values (@watchlistId, @listingId, @channel, 'pending')
             on conflict (watchlist_id, listing_id, channel) do update
-                set status = 'pending', attempts = alerts.attempts + 1, last_error = null
+                set status = 'pending', attempts = alerts.attempts + 1, last_error = null, claimed_at = now()
                 where alerts.status = 'failed'
+                   or (alerts.status = 'pending' and alerts.claimed_at < now() - @expiry)
             returning id
-            """, new { watchlistId, listingId, channel });
+            """, new { watchlistId, listingId, channel, expiry = ClaimExpiry });
     }
 
     public async Task MarkSentAsync(long alertId, CancellationToken cancellationToken = default)
