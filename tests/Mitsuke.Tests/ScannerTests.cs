@@ -163,7 +163,8 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
         var watchlist = (await new PostgresWatchlistStore(pg.Db).GetActiveAsync()).Single();
         var match = (await CreateCollector().CollectAsync(watchlist)).Matches.Single();
 
-        await Assert.ThrowsAsync<HttpRequestException>(() => CreateSender().SendAsync(match));
+        var thrown = await Assert.ThrowsAsync<AlertDeliveryException>(() => CreateSender().SendAsync(match));
+        Assert.IsType<HttpRequestException>(thrown.InnerException);
         Assert.Equal(AlertOutcome.Sent, await CreateSender().SendAsync(match)); // redelivery succeeds
     }
 

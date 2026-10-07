@@ -36,6 +36,9 @@ param bidRequestsTo string
 @description('Sender address for alert emails (the Gmail account the app password belongs to).')
 param smtpUser string
 
+@description('Web Push VAPID public key (not a secret; browsers get it too). Empty turns phone notifications off. The private key is the Key Vault secret vapid-private-key.')
+param vapidPublicKey string = ''
+
 @description('Upper limit on pipeline instances. The main protection against a runaway bill.')
 @minValue(40)
 param maxInstances int = 40
@@ -151,6 +154,14 @@ var shared = [
   { name: 'SMTP_USER', value: smtpUser }
   { name: 'SMTP_PASSWORD', value: kv(vault.name, 'smtp-password') }
   { name: 'BID_REQUESTS_TO', value: bidRequestsTo }
+  { name: 'MITSUKE_WEB_URL', value: webUrl }
+]
+
+// Phone/desktop notifications: the pipeline sends them, the API sends the "test this device" one.
+var push = empty(vapidPublicKey) ? [] : [
+  { name: 'VAPID_PUBLIC_KEY', value: vapidPublicKey }
+  { name: 'VAPID_PRIVATE_KEY', value: kv(vault.name, 'vapid-private-key') }
+  { name: 'VAPID_SUBJECT', value: 'mailto:${smtpUser}' }
 ]
 
 // ------------------------------------------------------------------ the pipeline (Azure Functions, Flex Consumption)
@@ -196,8 +207,7 @@ resource functions 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'THECARAPI_KEY', value: kv(vault.name, 'thecarapi-key') }
         { name: 'KENSAYA_BASE_URL', value: kensayaUrl }
         { name: 'KENSAYA_PARTNER_KEY', value: kv(vault.name, 'kensaya-partner-key') }
-        { name: 'MITSUKE_WEB_URL', value: webUrl }
-      ])
+      ], push)
     }
   }
   dependsOn: [ blobOwner, queueContributor, secretsUser ]
@@ -231,7 +241,7 @@ resource api 'Microsoft.Web/sites@2024-04-01' = {
       healthCheckPath: '/api/health'
       appSettings: concat(shared, [
         { name: 'ASPNETCORE_ENVIRONMENT', value: 'Production' }
-      ])
+      ], push)
     }
   }
   dependsOn: [ secretsUser ]

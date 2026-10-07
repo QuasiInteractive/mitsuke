@@ -6,3 +6,4 @@ param webUrl = readEnvironmentVariable('PROD_WEB_URL', 'https://mitsuke-jp.verce
 param bidRequestsTo = readEnvironmentVariable('BID_REQUESTS_TO')
 param smtpUser = readEnvironmentVariable('SMTP_USER')
 param adminPrincipalId = readEnvironmentVariable('ADMIN_PRINCIPAL_ID', '')
+param vapidPublicKey = readEnvironmentVariable('VAPID_PUBLIC_KEY', '')

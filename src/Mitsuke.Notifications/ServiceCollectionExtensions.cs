@@ -32,6 +32,23 @@ public static class ServiceCollectionExtensions
                 FromAddress = from,
             }));
         }
+
+        // Phone/desktop push when VAPID keys are configured (VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT).
+        // An unresolved Key Vault reference (secret not set yet) arrives as its literal text: leave push off rather
+        // than fail every alert, email included.
+        if (configuration["VAPID_PUBLIC_KEY"] is { Length: > 0 } publicKey
+            && configuration["VAPID_PRIVATE_KEY"] is { Length: > 0 } privateKey
+            && !privateKey.StartsWith("@Microsoft.KeyVault", StringComparison.Ordinal))
+        {
+            var vapid = new VapidOptions
+            {
+                PublicKey = publicKey,
+                PrivateKey = privateKey,
+                Subject = configuration["VAPID_SUBJECT"] is { Length: > 0 } s ? s : "mailto:mitsuke.alerts@gmail.com",
+            };
+            services.AddHttpClient("webpush", http => http.Timeout = TimeSpan.FromSeconds(15));
+            services.AddSingleton<IPushSender>(sp => new WebPushSender(sp.GetRequiredService<IHttpClientFactory>().CreateClient("webpush"), vapid));
+        }
         return services;
     }
 }

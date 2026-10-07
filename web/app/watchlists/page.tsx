@@ -6,6 +6,7 @@ import { getUser } from "@/lib/supabase/server";
 import { getMyWatchlists, type MyWatchlist } from "@/lib/api";
 import { km, money } from "@/lib/format";
 import { deleteWatchlist, setWatchlistActive } from "@/app/actions";
+import { PushToggle } from "@/components/PushToggle";
 
 export const metadata: Metadata = { title: "Your watchlists" };
 
@@ -19,6 +20,7 @@ export default function WatchlistsPage() {
         </div>
         <Link href="/watchlists/new" className="shrink-0 rounded-2xl bg-accent px-5 py-3 font-semibold hover:bg-accent-strong">+ New</Link>
       </div>
+      <PushToggle />
       <Suspense fallback={<div className="h-40 animate-pulse rounded-[1.25rem] bg-raised" />}>
         <List />
       </Suspense>

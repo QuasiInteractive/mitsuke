@@ -11,6 +11,8 @@ const notoJp = Noto_Sans_JP({ variable: "--font-noto-jp", subsets: ["latin"], we
 export const metadata: Metadata = {
   title: { default: "Mitsuke 見つけ", template: "%s · Mitsuke" },
   description: "Your wishlist car, found at Japanese auction, with the landed cost in Australia and a plain-English read of the auction sheet.",
+  icons: { apple: "/apple-touch-icon.png" },
+  appleWebApp: { capable: true, title: "Mitsuke", statusBarStyle: "black-translucent" },
 };
 
 export const viewport: Viewport = { themeColor: "#0b0b0d" };

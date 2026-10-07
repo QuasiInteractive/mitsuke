@@ -58,3 +58,28 @@ export async function setFeedback(lotId: string, kind: FeedbackKind | null, reas
   else await sendAs(token, "PUT", `/api/me/lots/${lotId}/feedback`, { kind, reason: reason ?? null });
   refresh();
 }
+
+export type BrowserSubscription = { endpoint: string; keys: { p256dh: string; auth: string } };
+
+/** Saves this device's push subscription for the signed-in person. Returns false if the API refused it. */
+export async function savePushSubscription(sub: BrowserSubscription): Promise<boolean> {
+  const token = await requireToken();
+  const res = await sendAs(token, "PUT", "/api/me/push-subscriptions", {
+    endpoint: sub?.endpoint,
+    keys: { p256dh: sub?.keys?.p256dh, auth: sub?.keys?.auth },
+  });
+  return res.ok;
+}
+
+export async function removePushSubscription(endpoint: string) {
+  if (typeof endpoint !== "string") return;
+  await sendAs(await requireToken(), "POST", "/api/me/push-subscriptions/remove", { endpoint });
+}
+
+export async function sendTestPush(): Promise<{ delivered: number } | { error: string }> {
+  const res = await sendAs(await requireToken(), "POST", "/api/me/push-subscriptions/test");
+  if (res.status === 429) return { error: "Slow down: try again in a minute." };
+  if (!res.ok) return { error: "Couldn't send a test right now." };
+  const body = (await res.json()) as { delivered: number };
+  return { delivered: body.delivered };
+}

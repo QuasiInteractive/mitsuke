@@ -26,6 +26,9 @@ public sealed record AlertLinks(Uri WebBaseUrl)
     public Uri ManageUrl => new(WebBaseUrl, "watchlists");
 }
 
+/// <summary>One or more channels failed for an alert; the inner exception is the first failure.</summary>
+public sealed class AlertDeliveryException(string message, Exception inner) : Exception(message, inner);
+
 public sealed partial class AlertSender(
     IListingStore listings,
     IWatchlistStore watchlists,
@@ -41,7 +44,9 @@ public sealed partial class AlertSender(
     ILogger<AlertSender> logger,
     AlertLinks? links = null,
     IEmailSender? email = null,
-    IUserStore? users = null)
+    IUserStore? users = null,
+    IPushSender? push = null,
+    IPushSubscriptionStore? pushSubscriptions = null)
 {
     /// <summary>Cached details younger than this are reused rather than refetched.</summary>
     public static readonly TimeSpan DetailsMaxAge = TimeSpan.FromHours(24);
@@ -58,42 +63,115 @@ public sealed partial class AlertSender(
             return AlertOutcome.Skipped;
         }
 
-        // A person's own watchlist is emailed to them; system/demo watchlists go to the shared channel (Discord/console).
-        var recipient = watchlist.OwnerId is { } owner && email is not null && users is not null
-            ? await users.GetAsync(owner, cancellationToken)
-            : null;
-        var channel = recipient is null ? notifier.Channel : "email";
-
-        if (await alerts.TryClaimAsync(watchlist.Id, request.ListingId, channel, cancellationToken) is not { } alertId)
-            return AlertOutcome.AlreadySent;
-
-        try
+        // Channels: a person's own watchlist goes to their email and each device with notifications on;
+        // system/demo watchlists go to the shared channel (Discord/console).
+        var channels = new List<string>();
+        User? recipient = null;
+        IReadOnlyList<PushSubscription> devices = [];
+        if (watchlist.OwnerId is { } owner && users is not null && await users.GetAsync(owner, cancellationToken) is { } user)
         {
+            recipient = user;
+            if (email is not null) channels.Add("email");
+            if (push is not null && pushSubscriptions is not null)
+            {
+                devices = await pushSubscriptions.GetForUserAsync(owner, cancellationToken);
+                if (devices.Count > 0) channels.Add("push");
+            }
+        }
+        if (channels.Count == 0) channels.Add(notifier.Channel);
+
+        // Enrichment (details, sheet, score) is shared by every channel and only computed if one actually sends.
+        Enriched? enriched = null;
+        async Task<Enriched> EnrichAsync()
+        {
+            if (enriched is not null) return enriched;
             var landed = listing.Price is { } price ? await landedCost.EstimateAsync(price, watchlist.Destination, cancellationToken) : null;
             // Details cost one request per car, so they're fetched only for alerts actually going out.
             var details = await GetDetailsAsync(request.ListingId, listing.Key, cancellationToken);
             var deal = DealScorer.Score(listing, await comparables.GetCandidatesAsync(listing, cancellationToken: cancellationToken));
             var sheet = await GetSheetReportAsync(request.ListingId, details?.CurrentSheet, cancellationToken);
-
-            var lotUrl = links?.LotUrl(request.ListingId);
-            if (recipient is not null)
-                await email!.SendAsync(
-                    AlertEmailFormatter.Format(recipient.Email, watchlist, listing, details, landed, deal, sheet, lotUrl, links?.ManageUrl),
-                    cancellationToken);
-            else
-                await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, details, landed, deal, sheet, lotUrl), cancellationToken);
-
-            await alerts.MarkSentAsync(alertId, cancellationToken);
-            LogSent(logger, listing.Key, watchlist.Name, channel);
-            return AlertOutcome.Sent;
+            return enriched = new Enriched(landed, details, deal, sheet, links?.LotUrl(request.ListingId));
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+
+        // Each channel is claimed on its own: a retry after a failed push resends only the push, never the email.
+        int sent = 0, already = 0;
+        Exception? firstFailure = null;
+        foreach (var channel in channels)
         {
-            // CancellationToken.None: recording the failure must happen even if the caller is shutting down.
-            await alerts.MarkFailedAsync(alertId, ex.Message, CancellationToken.None);
-            LogSendFailed(logger, ex, listing.Key, channel);
-            throw;
+            if (await alerts.TryClaimAsync(watchlist.Id, request.ListingId, channel, cancellationToken) is not { } alertId)
+            {
+                already++;
+                continue;
+            }
+
+            try
+            {
+                var e = await EnrichAsync();
+                switch (channel)
+                {
+                    case "email":
+                        await email!.SendAsync(
+                            AlertEmailFormatter.Format(recipient!.Email, watchlist, listing, e.Details, e.Landed, e.Deal, e.Sheet, e.LotUrl, links?.ManageUrl),
+                            cancellationToken);
+                        break;
+                    case "push":
+                        await PushToDevicesAsync(devices, PushFormatter.Format(listing, e.Landed, e.Deal, e.Sheet, e.LotUrl), cancellationToken);
+                        break;
+                    default:
+                        await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, e.Details, e.Landed, e.Deal, e.Sheet, e.LotUrl), cancellationToken);
+                        break;
+                }
+
+                await alerts.MarkSentAsync(alertId, cancellationToken);
+                LogSent(logger, listing.Key, watchlist.Name, channel);
+                sent++;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // CancellationToken.None: recording the failure must happen even if the caller is shutting down.
+                await alerts.MarkFailedAsync(alertId, ex.Message, CancellationToken.None);
+                LogSendFailed(logger, ex, listing.Key, channel);
+                firstFailure ??= ex;
+            }
         }
+
+        // Any failure throws so the queue redelivers; the claims make sure only the failed channels go again.
+        if (firstFailure is not null) throw new AlertDeliveryException($"{channels.Count - sent - already} channel(s) failed", firstFailure);
+        return sent > 0 ? AlertOutcome.Sent : AlertOutcome.AlreadySent;
+    }
+
+    private sealed record Enriched(LandedEstimate? Landed, ListingDetails? Details, DealScore? Deal, SheetReport? Sheet, Uri? LotUrl);
+
+    /// <summary>
+    /// Sends to every device; a device the push service says is gone is deleted. Succeeds if any device got it,
+    /// or if every subscription was simply gone (nothing left to retry).
+    /// </summary>
+    private async Task PushToDevicesAsync(IReadOnlyList<PushSubscription> devices, PushMessage message, CancellationToken cancellationToken)
+    {
+        Exception? lastError = null;
+        var delivered = 0;
+        var gone = 0;
+        foreach (var device in devices)
+        {
+            try
+            {
+                if (await push!.SendAsync(device, message, cancellationToken) == PushResult.Gone)
+                {
+                    await pushSubscriptions!.RemoveAsync(device.Id, cancellationToken);
+                    gone++;
+                }
+                else
+                {
+                    await pushSubscriptions!.MarkDeliveredAsync(device.Id, cancellationToken);
+                    delivered++;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                lastError = ex;
+            }
+        }
+        if (delivered == 0 && gone < devices.Count && lastError is not null) throw lastError;
     }
 
     /// <summary>

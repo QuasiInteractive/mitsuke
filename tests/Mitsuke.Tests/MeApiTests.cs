@@ -142,6 +142,55 @@ public sealed class MeApiTests(PostgresFixture pg) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NoContent, (await _http.SendAsync(As(Alice, HttpMethod.Delete, $"/api/me/watchlists/{alices}"))).StatusCode);
     }
 
+    private static object Device(string endpoint) => new { endpoint, keys = new { p256dh = "BPublicKey", auth = "authSecret" } };
+
+    [Fact]
+    public async Task Devices_are_saved_per_person_and_validated()
+    {
+        Assert.Equal(HttpStatusCode.NoContent, (await _http.SendAsync(As(Alice, HttpMethod.Put, "/api/me/push-subscriptions", Device("https://push.test/a")))).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await _http.SendAsync(As(Alice, HttpMethod.Put, "/api/me/push-subscriptions", Device("https://push.test/a")))).StatusCode); // idempotent
+        Assert.Equal(HttpStatusCode.BadRequest, (await _http.SendAsync(As(Alice, HttpMethod.Put, "/api/me/push-subscriptions", Device("http://169.254.169.254/")))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _http.SendAsync(As(Alice, HttpMethod.Put, "/api/me/push-subscriptions", new { endpoint = "https://push.test/b" }))).StatusCode);
+
+        var devices = new PostgresPushSubscriptionStore(pg.Db);
+        await _http.SendAsync(As(Bob, HttpMethod.Post, "/api/me/push-subscriptions/remove", new { endpoint = "https://push.test/a" })); // not Bob's
+        Assert.Single(await devices.GetForUserAsync(Alice));
+
+        await _http.SendAsync(As(Alice, HttpMethod.Post, "/api/me/push-subscriptions/remove", new { endpoint = "https://push.test/a" }));
+        Assert.Empty(await devices.GetForUserAsync(Alice));
+    }
+
+    [Fact]
+    public async Task Test_push_goes_to_my_devices_only()
+    {
+        var push = new RecordingPush();
+        using var factory = _factory.WithWebHostBuilder(web => web.ConfigureServices(s => s.AddSingleton<IPushSender>(push)));
+        using var http = factory.CreateClient();
+        await http.SendAsync(As(Alice, HttpMethod.Put, "/api/me/push-subscriptions", Device("https://push.test/alice")));
+        await http.SendAsync(As(Bob, HttpMethod.Put, "/api/me/push-subscriptions", Device("https://push.test/bob")));
+
+        var res = await http.SendAsync(As(Alice, HttpMethod.Post, "/api/me/push-subscriptions/test"));
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        Assert.Equal(1, (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("delivered").GetInt32());
+        Assert.Equal(["https://push.test/alice"], push.Endpoints);
+    }
+
+    [Fact]
+    public async Task Test_push_says_so_when_the_server_has_no_keys() =>
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await _http.SendAsync(As(Alice, HttpMethod.Post, "/api/me/push-subscriptions/test"))).StatusCode);
+
+    private sealed class RecordingPush : IPushSender
+    {
+        public List<string> Endpoints { get; } = [];
+
+        public Task<PushResult> SendAsync(PushSubscription subscription, PushMessage message, CancellationToken cancellationToken = default)
+        {
+            Endpoints.Add(subscription.Endpoint);
+            return Task.FromResult(PushResult.Delivered);
+        }
+    }
+
     [Fact]
     public async Task Bad_watchlists_get_field_errors()
     {

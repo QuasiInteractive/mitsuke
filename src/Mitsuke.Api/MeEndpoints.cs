@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
 using Mitsuke.Core;
 
 namespace Mitsuke.Api;
@@ -88,6 +89,54 @@ public static class MeEndpoints
             return TypedResults.NoContent();
         });
 
+        // Devices with notifications on. The browser's PushManager gives the endpoint and keys; the endpoint is the
+        // push service's URL (Google, Apple, Mozilla), so only https is accepted, and the keys are only used to encrypt.
+        me.MapPut("/push-subscriptions", async Task<Results<NoContent, ValidationProblem>> (
+            PushSubscriptionBody body, HttpRequest http, ClaimsPrincipal principal, IUserStore users, IPushSubscriptionStore devices, CancellationToken ct) =>
+        {
+            var errors = body.Validate();
+            if (errors.Count > 0) return TypedResults.ValidationProblem(errors);
+
+            var user = await CurrentUserAsync(principal, users, ct);
+            var agent = http.Headers.UserAgent.ToString() is { Length: > 0 } ua ? ua[..Math.Min(ua.Length, 300)] : null;
+            await devices.SaveAsync(user.Id, body.Endpoint, body.Keys.P256dh, body.Keys.Auth, agent, ct);
+            return TypedResults.NoContent();
+        });
+
+        me.MapPost("/push-subscriptions/remove", async (
+            PushEndpointBody body, ClaimsPrincipal principal, IUserStore users, IPushSubscriptionStore devices, CancellationToken ct) =>
+        {
+            var user = await CurrentUserAsync(principal, users, ct);
+            await devices.DeleteAsync(user.Id, body.Endpoint, ct);
+            return TypedResults.NoContent();
+        });
+
+        // "Send me a test": proves the whole chain (keys, service worker, OS permission) before a real car turns up.
+        me.MapPost("/push-subscriptions/test", async Task<Results<Ok<PushTestResult>, ProblemHttpResult>> (
+            ClaimsPrincipal principal, IUserStore users, IPushSubscriptionStore devices, [FromServices] IPushSender? push, IConfiguration config, CancellationToken ct) =>
+        {
+            if (push is null) return TypedResults.Problem("Push notifications aren't configured on the server.", statusCode: 503);
+
+            var user = await CurrentUserAsync(principal, users, ct);
+            var webUrl = Uri.TryCreate(config["MITSUKE_WEB_URL"], UriKind.Absolute, out var w) ? w : null;
+            var message = new PushMessage("Mitsuke notifications are on", "We'll ping this device the moment a car matches your watchlist.", webUrl, "mitsuke-test");
+            int delivered = 0, gone = 0;
+            foreach (var device in await devices.GetForUserAsync(user.Id, ct))
+            {
+                if (await push.SendAsync(device, message, ct) == PushResult.Gone)
+                {
+                    await devices.RemoveAsync(device.Id, ct);
+                    gone++;
+                }
+                else
+                {
+                    await devices.MarkDeliveredAsync(device.Id, ct);
+                    delivered++;
+                }
+            }
+            return TypedResults.Ok(new PushTestResult(delivered, gone));
+        }).RequireRateLimiting("bids");
+
         return api;
     }
 
@@ -107,6 +156,25 @@ public static class MeEndpoints
 }
 
 public sealed record WatchlistCreated(Guid Id);
+
+public sealed record PushKeys(string P256dh, string Auth);
+
+public sealed record PushSubscriptionBody(string Endpoint, PushKeys Keys)
+{
+    public Dictionary<string, string[]> Validate()
+    {
+        var e = new Dictionary<string, string[]>();
+        if (!Uri.TryCreate(Endpoint, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps || Endpoint.Length > 1000)
+            e["endpoint"] = ["Not a push subscription endpoint."];
+        if (Keys is null || string.IsNullOrWhiteSpace(Keys.P256dh) || Keys.P256dh.Length > 200 || string.IsNullOrWhiteSpace(Keys.Auth) || Keys.Auth.Length > 100)
+            e["keys"] = ["Missing the subscription's keys."];
+        return e;
+    }
+}
+
+public sealed record PushEndpointBody(string Endpoint);
+
+public sealed record PushTestResult(int Delivered, int Removed);
 
 public sealed record UpdateWatchlistBody(bool IsActive);
 

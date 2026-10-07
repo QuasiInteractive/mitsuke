@@ -27,7 +27,7 @@ public sealed class PostgresFixture : IAsyncLifetime
     public async Task ResetAsync()
     {
         await using var conn = await Db.OpenConnectionAsync();
-        await conn.ExecuteAsync("truncate lot_feedback, bid_requests, alerts, sheet_reports, listing_details, price_observations, listings, vehicles, watchlists, users restart identity cascade");
+        await conn.ExecuteAsync("truncate push_subscriptions, lot_feedback, bid_requests, alerts, sheet_reports, listing_details, price_observations, listings, vehicles, watchlists, users restart identity cascade");
     }
 
     public async Task DisposeAsync()

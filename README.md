@@ -23,7 +23,7 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 | Web app: matches + lot page (gallery, landed-cost breakdown, deal score, decoded sheet on a car diagram, countdown, "I want to bid") | ✅ Next.js 16 + Mitsuke.Api |
 | Accounts: magic-link sign-in (Supabase Auth), your own watchlists with presets, keep watching / not for me | ✅ |
 | Per-person email alerts: HTML card (photo, landed cost, deal score, red flags, lot link), every value HTML-encoded; demo lists stay on Discord | ✅ (SMTP: Gmail in production, Mailpit locally) |
-| Phone push notifications | Next |
+| Phone/desktop push (Web Push, VAPID, payload encrypted per device), installable PWA; each channel claimed separately so a retry never re-sends the email; dead devices pruned on 404/410 | ✅ |
 
 | Auction sheet decoded into plain English via Kensa-ya's partner API; serious red flags lead the alert | ✅ |
 | Live: [mitsuke-jp.vercel.app](https://mitsuke-jp.vercel.app) on Vercel + Azure (Functions Flex, App Service F1, Key Vault, App Insights) + Supabase, all from Bicep | ✅ |
@@ -70,7 +70,7 @@ Why things are the way they are: [docs/thecarapi-findings.md](docs/thecarapi-fin
 | `src/Mitsuke.Data` | Postgres via Npgsql + Dapper. Forward-only SQL migrations in [`Migrations/`](src/Mitsuke.Data/Migrations), applied under an advisory lock. |
 | `src/Mitsuke.Functions` | Azure Functions (isolated, .NET 10): the timer + two queue-triggered stages, `GET /api/health`, OpenTelemetry to Application Insights. |
 | `src/Mitsuke.Kensaya` | Client for Kensa-ya's partner API (sheet decoding), with its own resilience pipeline. |
-| `src/Mitsuke.Notifications` | Delivery channels behind `INotifier` (Discord webhook now; email and push next). |
+| `src/Mitsuke.Notifications` | Delivery channels: Discord/console (`INotifier`), SMTP email (`IEmailSender`), Web Push (`IPushSender`). |
 | `src/Mitsuke.Api` | ASP.NET Core minimal API for the web app: lot views, matches, watchlists, bid requests (validated, rate-limited). OpenAPI at `/openapi/v1.json` in development. |
 | `web/` | Next.js 16 front end (React 19, Tailwind 4, Cache Components / partial prerendering). Calls the API from its server only. |
 | `src/Mitsuke.Cli` | Local runner: `migrate`, `seed`, `scan`. |
@@ -91,7 +91,7 @@ dotnet run --project src/Mitsuke.Cli -- backfill  # one-off: past lots for the d
 dotnet run --project src/Mitsuke.Cli -- scan    # run it twice: the second pass sends nothing new
 ```
 
-Set `DISCORD_WEBHOOK_URL` in `.env` to get alerts in Discord instead of the console.
+Set `DISCORD_WEBHOOK_URL` in `.env` to get alerts in Discord instead of the console. For push, put a VAPID key pair in `.env` (see `.env.example`) and the public half in `web/.env.local`, then use "Turn on" on the Watchlists page.
 
 ### Run the web app
 
