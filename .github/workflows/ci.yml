@@ -136,7 +136,9 @@ jobs:
       - name: Smoke test
         run: |
           api="https://$(az webapp show -g '${{ vars.AZURE_RESOURCE_GROUP }}' -n '${{ vars.AZURE_WEBAPP }}' --query defaultHostName -o tsv)"
-          fn="https://$(az functionapp show -g '${{ vars.AZURE_RESOURCE_GROUP }}' -n '${{ vars.AZURE_FUNCTIONAPP }}' --query defaultHostName -o tsv)"
+          # Flex Consumption apps report their hostname under properties, not at the top level.
+          fn="https://$(az functionapp show -g '${{ vars.AZURE_RESOURCE_GROUP }}' -n '${{ vars.AZURE_FUNCTIONAPP }}' --query properties.defaultHostName -o tsv)"
+          [ "$api" != "https://" ] && [ "$fn" != "https://" ] || { echo "::error::Couldn't read an app hostname from Azure"; exit 1; }
           for url in "$api/api/health" "$api/api/watchlists" "$fn/api/health" "${{ vars.WEB_URL }}"; do
             for attempt in 1 2 3 4 5 6; do
               code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "$url") && [ "$code" = 200 ] && break
