@@ -4,6 +4,7 @@
 //   dotnet run --project src/Mitsuke.Cli -- seed      # add the demo R32 GT-R watchlist
 //   dotnet run --project src/Mitsuke.Cli -- scan      # one pass: collect -> store -> match -> alert once
 //   dotnet run --project src/Mitsuke.Cli -- backfill  # one-off: load ended lots as deal-score comparables
+//   dotnet run --project src/Mitsuke.Cli -- test-email you@example.com   # check the SMTP settings work
 //
 // The Azure Functions host replaces this runner later; the pipeline itself lives in Mitsuke.Core.Scanner.
 
@@ -18,9 +19,15 @@ using Mitsuke.Notifications;
 using Mitsuke.Pricing;
 using Mitsuke.Sources.TheCarApi;
 
-if (args is not [("migrate" or "seed" or "scan" or "backfill") and var command])
+var command = args switch
 {
-    Console.Error.WriteLine("usage: dotnet run --project src/Mitsuke.Cli -- migrate|seed|scan|backfill");
+    [("migrate" or "seed" or "scan" or "backfill") and var c] => c,
+    ["test-email", _] => "test-email",
+    _ => null,
+};
+if (command is null)
+{
+    Console.Error.WriteLine("usage: dotnet run --project src/Mitsuke.Cli -- migrate|seed|scan|backfill|test-email <address>");
     return 2;
 }
 
@@ -67,6 +74,20 @@ switch (command)
 
     case "scan":
         await services.GetRequiredService<Scanner>().RunAsync();
+        break;
+
+    case "test-email":
+        if (services.GetService<IEmailSender>() is not { } email)
+        {
+            Console.Error.WriteLine("No email sender: set SMTP_HOST (and SMTP_USER / SMTP_PASSWORD for Gmail) in .env.");
+            return 1;
+        }
+        await email.SendAsync(new EmailMessage(
+            args[1],
+            "Mitsuke test email",
+            "If you can read this, Mitsuke's email alerts are set up correctly.",
+            "<p style=\"font-family:Segoe UI,Arial,sans-serif\">If you can read this, <strong>Mitsuke</strong>'s email alerts are set up correctly. 見つけ</p>"));
+        Console.WriteLine($"Sent a test email to {args[1]}.");
         break;
 
     case "backfill":
