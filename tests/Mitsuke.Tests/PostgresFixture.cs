@@ -13,6 +13,9 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public NpgsqlDataSource Db { get; private set; } = null!;
 
+    /// <summary>Full connection string (with password), for tests that need their own data source.</summary>
+    public string ConnectionString => _container.GetConnectionString();
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();

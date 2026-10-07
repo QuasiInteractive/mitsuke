@@ -8,6 +8,7 @@
 using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Mitsuke.Api;
@@ -26,6 +27,10 @@ if (builder.Environment.IsDevelopment())
 builder.Services.AddMitsukeData(builder.Configuration["MITSUKE_DB"] ?? "");
 builder.Services.AddMitsukePricing();
 builder.Services.AddMitsukeNotifications(builder.Configuration);
+
+// Requests, dependencies (Postgres, HTTP) and logs to Application Insights in Azure; nothing locally.
+if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+    builder.Services.AddOpenTelemetry().UseAzureMonitor();
 builder.Services.AddSingleton<LotViewBuilder>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
@@ -84,7 +89,8 @@ api.MapMeEndpoints();
 
 api.MapPost("/lots/{id:guid}/bid-requests",
     async Task<Results<Created<BidRequestCreated>, ValidationProblem, NotFound>> (
-        Guid id, BidRequestBody body, IListingStore listings, IBidRequestStore bids, INotifier notifier, CancellationToken ct) =>
+        Guid id, BidRequestBody body, IListingStore listings, IBidRequestStore bids, INotifier notifier, IConfiguration config,
+        IServiceProvider services, CancellationToken ct) =>
     {
         var errors = body.Validate();
         if (errors.Count > 0) return TypedResults.ValidationProblem(errors);
@@ -94,9 +100,15 @@ api.MapPost("/lots/{id:guid}/bid-requests",
         var requestId = await bids.AddAsync(request, ct);
 
         // MVP hand-off: tell Nick, who forwards it to the partner exporter. Mitsuke never bids or holds money.
-        await notifier.SendAsync(string.Create(CultureInfo.GetCultureInfo("en-AU"),
+        // Emailed to BID_REQUESTS_TO when email is configured (production), otherwise the shared notifier.
+        var summary = string.Create(CultureInfo.GetCultureInfo("en-AU"),
             $"BID REQUEST {requestId}\n{LotViewBuilder.Title(listing)}, {listing.AuctionHouse} lot {listing.LotNumber}\n" +
-            $"Max bid: ¥{body.MaxBidJpy:N0}\nFrom: {request.Name} <{request.Email}>\n{request.Note}"), ct);
+            $"Max bid: ¥{body.MaxBidJpy:N0}\nFrom: {request.Name} <{request.Email}>\n{request.Note}");
+        if (services.GetService<IEmailSender>() is { } email && config["BID_REQUESTS_TO"] is { Length: > 0 } to)
+            await email.SendAsync(new EmailMessage(to, $"Bid request: {LotViewBuilder.Title(listing)}, max ¥{body.MaxBidJpy:N0}",
+                summary, $"<pre style=\"font-family:Segoe UI,Arial,sans-serif;white-space:pre-wrap\">{System.Net.WebUtility.HtmlEncode(summary)}</pre>"), ct);
+        else
+            await notifier.SendAsync(summary, ct);
 
         return TypedResults.Created($"/api/bid-requests/{requestId}", new BidRequestCreated(requestId));
     })

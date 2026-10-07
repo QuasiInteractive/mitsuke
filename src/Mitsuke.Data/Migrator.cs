@@ -19,6 +19,17 @@ public sealed partial class Migrator(NpgsqlDataSource db, ILogger<Migrator> logg
         await conn.ExecuteAsync("select pg_advisory_lock(@LockKey)", new { LockKey });
         try
         {
+            // On Supabase, tables in "public" are reachable through its Data API with the publishable key the web app
+            // ships. Production therefore sets "Search Path=mitsuke": the tables live in a private schema that API never
+            // exposes, created here and closed to everyone but its owner.
+            var schema = new NpgsqlConnectionStringBuilder(conn.ConnectionString).SearchPath?.Split(',')[0].Trim();
+            if (!string.IsNullOrEmpty(schema) && schema != "public")
+            {
+                if (!System.Text.RegularExpressions.Regex.IsMatch(schema, "^[a-z_][a-z0-9_]*$"))
+                    throw new InvalidOperationException($"Unexpected schema name '{schema}' in Search Path.");
+                await conn.ExecuteAsync($"create schema if not exists {schema}; revoke all on schema {schema} from public");
+            }
+
             await conn.ExecuteAsync("""
                 create table if not exists schema_migrations (
                     id         text primary key,

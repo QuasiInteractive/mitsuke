@@ -31,6 +31,23 @@ public sealed class PostgresStoreTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task With_a_search_path_the_tables_live_in_a_private_schema_not_public()
+    {
+        // Production on Supabase: "public" is exposed by its Data API, so Mitsuke's tables must not be there.
+        var cs = new Npgsql.NpgsqlConnectionStringBuilder(pg.ConnectionString) { SearchPath = "mitsuke_private" }.ConnectionString;
+        await using var privateDb = Npgsql.NpgsqlDataSource.Create(cs);
+
+        Assert.True(await new Migrator(privateDb, NullLogger<Migrator>.Instance).MigrateAsync() > 0);
+
+        await using var conn = await pg.Db.OpenConnectionAsync();
+        Assert.Equal(1, await conn.ExecuteScalarAsync<int>(
+            "select count(*) from information_schema.tables where table_schema = 'mitsuke_private' and table_name = 'watchlists'"));
+        Assert.False(await conn.ExecuteScalarAsync<bool>(
+            "select has_schema_privilege('public', 'mitsuke_private', 'USAGE')"));
+        await conn.ExecuteAsync("drop schema mitsuke_private cascade");
+    }
+
+    [Fact]
     public async Task First_upsert_inserts_and_records_the_price()
     {
         var result = await _listings.UpsertAsync(Lot(Fixtures.BigId));
