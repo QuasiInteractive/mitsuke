@@ -90,6 +90,6 @@ public class JapanDetailsMapperTests
 
         Assert.Contains("Seen at auction 2 times before, since 4 Sep", text, StringComparison.Ordinal);
         Assert.Contains("Check: mileage_km changed between auctions.", text, StringComparison.Ordinal);
-        Assert.Contains("Auction sheet available.", text, StringComparison.Ordinal);
+        Assert.Contains("Auction sheet available (not yet decoded).", text, StringComparison.Ordinal);
     }
 }

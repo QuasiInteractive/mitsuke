@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using Mitsuke.Cli;
 using Mitsuke.Core;
 using Mitsuke.Data;
+using Mitsuke.Kensaya;
 using Mitsuke.Notifications;
 using Mitsuke.Pricing;
 using Mitsuke.Sources.TheCarApi;
@@ -37,6 +38,7 @@ builder.Services.AddSingleton<Collector>();
 builder.Services.AddSingleton<AlertSender>();
 builder.Services.AddSingleton<Scanner>();
 builder.Services.AddMitsukeNotifications(builder.Configuration);
+builder.Services.AddKensayaSheetDecoding(builder.Configuration);
 if (command is "scan" or "backfill") builder.Services.AddTheCarApiSource(builder.Configuration); // only these need the API key
 
 using var host = builder.Build();

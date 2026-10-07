@@ -6,6 +6,8 @@
     "CollectSchedule": "0 */10 * * * *",
     "MITSUKE_DB": "Host=localhost;Port=5432;Database=mitsuke;Username=mitsuke;Password=",
     "THECARAPI_KEY": "",
-    "DISCORD_WEBHOOK_URL": ""
+    "DISCORD_WEBHOOK_URL": "",
+    "KENSAYA_BASE_URL": "",
+    "KENSAYA_PARTNER_KEY": ""
   }
 }

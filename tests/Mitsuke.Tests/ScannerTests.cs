@@ -15,6 +15,7 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
     private readonly FakeSource _source = new();
     private readonly FakeNotifier _notifier = new();
     private readonly FakeDetails _details = new();
+    private readonly FakeSheets _sheets = new();
 
     public async Task InitializeAsync()
     {
@@ -43,6 +44,7 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
         new PostgresListingDetailsStore(pg.Db),
         Landed.Estimator,
         new PostgresComparablesStore(pg.Db),
+        [_sheets], new PostgresSheetReportStore(pg.Db),
         _notifier,
         new FakeTimeProvider(Now),
         NullLogger<AlertSender>.Instance);
@@ -106,7 +108,7 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
         await CreateScanner().RunAsync();
 
         Assert.Equal(["gtr-1"], _details.Requested); // non-matches and repeat scans cost nothing
-        Assert.Contains("Auction sheet available.", _notifier.Sent[0], StringComparison.Ordinal);
+        Assert.Contains("⚠ Mileage marked as doubtful", _notifier.Sent[0], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -163,6 +165,62 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
 
         await Assert.ThrowsAsync<HttpRequestException>(() => CreateSender().SendAsync(match));
         Assert.Equal(AlertOutcome.Sent, await CreateSender().SendAsync(match)); // redelivery succeeds
+    }
+
+    [Fact]
+    public async Task The_sheet_is_decoded_once_and_its_red_flags_lead_the_alert()
+    {
+        _source.Lots = [Lot("gtr-1")];
+        var watchlist = (await new PostgresWatchlistStore(pg.Db).GetActiveAsync()).Single();
+        var match = (await CreateCollector().CollectAsync(watchlist)).Matches.Single();
+
+        await CreateSender().SendAsync(match);
+        await using (var conn = await pg.Db.OpenConnectionAsync())
+            await Dapper.SqlMapper.ExecuteAsync(conn, "delete from alerts"); // force a second alert for the same car
+        await CreateSender().SendAsync(match);
+
+        Assert.Single(_sheets.Decoded); // paid for once, then served from sheet_reports
+        var text = _notifier.Sent[^1];
+        Assert.True(text.IndexOf("⚠ Mileage marked as doubtful", StringComparison.Ordinal) < text.IndexOf("Est. landed", StringComparison.Ordinal));
+        Assert.Contains("Condition (from the auction sheet): Tidy for its age.", text, StringComparison.Ordinal);
+        Assert.Contains("Also check: 6 aftermarket parts.", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_sheet_decoding_failure_still_sends_the_alert()
+    {
+        _source.Lots = [Lot("gtr-1")];
+        _sheets.Fail = true;
+
+        var result = await CreateScanner().RunAsync();
+
+        Assert.Equal((1, 0), (result.Sent, result.Failed));
+        Assert.Contains("Auction sheet available (not yet decoded).", _notifier.Sent[0], StringComparison.Ordinal);
+    }
+
+    private sealed class FakeSheets : ISheetDecoder
+    {
+        public List<Uri> Decoded { get; } = [];
+        public bool Fail { get; set; }
+
+        public Task<SheetReport?> DecodeAsync(Uri sheetUrl, CancellationToken cancellationToken = default)
+        {
+            if (Fail) throw new HttpRequestException("Kensa-ya down");
+            Decoded.Add(sheetUrl);
+            return Task.FromResult<SheetReport?>(new SheetReport
+            {
+                SheetUrl = sheetUrl,
+                DecodedAt = Now,
+                IsAuctionSheet = true,
+                Summary = "Tidy for its age.",
+                RedFlags =
+                [
+                    new SheetFlag(FlagSeverity.High, "Mileage marked as doubtful", "The true distance is unknown."),
+                    new SheetFlag(FlagSeverity.Medium, "6 aftermarket parts", "Check they're road legal."),
+                ],
+                CostUsd = 0.09m,
+            });
+        }
     }
 
     private sealed class FakeDetails : IListingDetailsSource

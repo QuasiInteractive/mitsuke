@@ -4,6 +4,7 @@
     <Project Path="src/Mitsuke.Core/Mitsuke.Core.csproj" />
     <Project Path="src/Mitsuke.Data/Mitsuke.Data.csproj" />
     <Project Path="src/Mitsuke.Functions/Mitsuke.Functions.csproj" />
+    <Project Path="src/Mitsuke.Kensaya/Mitsuke.Kensaya.csproj" />
     <Project Path="src/Mitsuke.Notifications/Mitsuke.Notifications.csproj" />
     <Project Path="src/Mitsuke.Pricing/Mitsuke.Pricing.csproj" />
     <Project Path="src/Mitsuke.Sources.TheCarApi/Mitsuke.Sources.TheCarApi.csproj" />

@@ -31,7 +31,8 @@ public sealed class PipelineFunctionsTests(PostgresFixture pg) : IAsyncLifetime
         var watchlists = new PostgresWatchlistStore(pg.Db);
         var collector = new Collector([new OneShotSource(lots)], new PostgresListingStore(pg.Db), Landed.Estimator, new FakeTimeProvider(Now), NullLogger<Collector>.Instance);
         var sender = new AlertSender(new PostgresListingStore(pg.Db), watchlists, new PostgresAlertLog(pg.Db), [], new PostgresListingDetailsStore(pg.Db),
-            Landed.Estimator, new PostgresComparablesStore(pg.Db), new Notifications.ConsoleNotifier(), new FakeTimeProvider(Now), NullLogger<AlertSender>.Instance);
+            Landed.Estimator, new PostgresComparablesStore(pg.Db),
+            [], new PostgresSheetReportStore(pg.Db), new Notifications.ConsoleNotifier(), new FakeTimeProvider(Now), NullLogger<AlertSender>.Instance);
         return new PipelineFunctions(watchlists, collector, sender, NullLogger<PipelineFunctions>.Instance);
     }
 

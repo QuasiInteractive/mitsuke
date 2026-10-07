@@ -12,7 +12,8 @@ public static class AlertFormatter
     private static readonly CultureInfo Au = CultureInfo.GetCultureInfo("en-AU");
 
     public static string Format(
-        Watchlist watchlist, Listing listing, ListingDetails? details = null, LandedEstimate? landed = null, DealScore? deal = null)
+        Watchlist watchlist, Listing listing, ListingDetails? details = null, LandedEstimate? landed = null, DealScore? deal = null,
+        SheetReport? sheet = null)
     {
         ArgumentNullException.ThrowIfNull(watchlist);
         ArgumentNullException.ThrowIfNull(listing);
@@ -30,6 +31,10 @@ public static class AlertFormatter
         sb.Append(CultureInfo.InvariantCulture, $"[{watchlist.Name}] {title}");
         if (facts.Count > 0) sb.Append(". ").Append(string.Join(", ", facts));
         sb.AppendLine(".");
+
+        // Serious problems from the sheet come before any price talk: a cheap car is often cheap for a reason.
+        foreach (var flag in sheet?.RedFlags.Where(f => f.Severity == FlagSeverity.High) ?? [])
+            sb.AppendLine(CultureInfo.InvariantCulture, $"⚠ {flag.Title}. {flag.Detail}");
 
         if (landed is not null)
         {
@@ -74,7 +79,14 @@ public static class AlertFormatter
             var changed = details.Relists.SelectMany(r => r.Changes).Where(c => c.Length > 0).Distinct().ToList();
             if (changed.Count > 0) sb.AppendLine(CultureInfo.InvariantCulture, $"Check: {string.Join(", ", changed)} changed between auctions.");
 
-            if (details.CurrentSheet is not null) sb.AppendLine("Auction sheet available.");
+            if (details.CurrentSheet is not null && sheet is null) sb.AppendLine("Auction sheet available (not yet decoded).");
+        }
+
+        if (sheet is not null)
+        {
+            if (sheet.Summary.Length > 0) sb.AppendLine(CultureInfo.InvariantCulture, $"Condition (from the auction sheet): {sheet.Summary}");
+            var others = sheet.RedFlags.Where(f => f.Severity == FlagSeverity.Medium).Select(f => f.Title).ToList();
+            if (others.Count > 0) sb.AppendLine(CultureInfo.InvariantCulture, $"Also check: {string.Join("; ", others)}.");
         }
 
         sb.AppendLine(listing.Attribution);

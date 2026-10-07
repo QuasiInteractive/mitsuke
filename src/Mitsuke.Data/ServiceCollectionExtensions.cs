@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IAlertLog, PostgresAlertLog>();
         services.AddSingleton<IListingDetailsStore, PostgresListingDetailsStore>();
         services.AddSingleton<IComparablesStore, PostgresComparablesStore>();
+        services.AddSingleton<ISheetReportStore, PostgresSheetReportStore>();
         return services;
     }
 }

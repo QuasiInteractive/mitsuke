@@ -20,8 +20,9 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 | Landed cost AU/NZ/US with live exchange rates, "under A$45K landed" watchlists | ✅ Identical to Kensa-ya, proven by 160 golden cases |
 | Deal score: percentile vs comparable cars, one per physical car, with confidence | ✅ |
 | Runs 24/7 on Azure Functions: timer → `collect` queue → `alerts` queue, retries + poison (dead-letter) queues, health endpoint, OpenTelemetry | ✅ Runs locally on Azurite |
-| Web app, email/push notifications | Planned |
-| Kensa-ya sheet decoding | Next |
+| Web app (lot page, watchlists, bid button) | Next |
+| Email and push notifications | Planned |
+| Auction sheet decoded into plain English via Kensa-ya's partner API; serious red flags lead the alert | ✅ |
 | Bicep IaC, CD, Key Vault, Application Insights in Azure | Planned |
 
 ## Architecture
@@ -48,6 +49,7 @@ The same `Collector` and `AlertSender` run in-process for `dotnet run -- scan`, 
 - **Our own price history.** TheCarApi has no Japanese sale prices, so every price *change* is logged per listing, and relisted cars are linked to one `vehicle` by frame number.
 - **One engine, two products.** Landed cost is Kensa-ya's engine, vendored unchanged by [`scripts/sync-kensaya-engine.sh`](scripts/sync-kensaya-engine.sh) together with Kensa-ya's golden answers; [`LandedCostParityTests`](tests/Mitsuke.Tests/LandedCostParityTests.cs) fails the build if Mitsuke would quote a different number, to the cent.
 - **A deal score that shows its working.** Each match is ranked against comparable cars (same model code, similar year, mileage and grade; relists collapsed to one car via the `vehicles` table; never compared with itself). It reports how many cars it used and a confidence, and says nothing rather than guess when there are fewer than five. `backfill` seeds comparables from TheCarApi's archive.
+- **Shared brains, private secrets.** Sheet reading is Kensa-ya's paid product, so it is *called*, never copied: Mitsuke posts a sheet URL to Kensa-ya's partner endpoint (bearer key, host allowlist against SSRF) and maps the answer. It runs only for alerts actually going out, is cached per listing (each read is a paid AI call, about US$0.05–0.09), and sits behind its own retry/circuit-breaker pipeline; if Kensa-ya is down, alerts still go out without it.
 - **Honest data.** Japanese auction prices are opening bids, never sale prices, and `PriceKind` carries that through to the alert text. Unknown values fail filters that need them, so Mitsuke never alerts on a guess. Every alert names its source and carries a disclaimer.
 
 Why things are the way they are: [docs/thecarapi-findings.md](docs/thecarapi-findings.md) covers what the data actually contains, verified against the live API before the schema was designed.
@@ -61,6 +63,7 @@ Why things are the way they are: [docs/thecarapi-findings.md](docs/thecarapi-fin
 | `src/Mitsuke.Pricing` | Landed-cost estimates: Kensa-ya's engine and country rules (in `Kensaya/` and `data/`, synced, not edited) behind Mitsuke's `ILandedCostEstimator`, with live ECB exchange rates. |
 | `src/Mitsuke.Data` | Postgres via Npgsql + Dapper. Forward-only SQL migrations in [`Migrations/`](src/Mitsuke.Data/Migrations), applied under an advisory lock. |
 | `src/Mitsuke.Functions` | Azure Functions (isolated, .NET 10): the timer + two queue-triggered stages, `GET /api/health`, OpenTelemetry to Application Insights. |
+| `src/Mitsuke.Kensaya` | Client for Kensa-ya's partner API (sheet decoding), with its own resilience pipeline. |
 | `src/Mitsuke.Notifications` | Delivery channels behind `INotifier` (Discord webhook now; email and push next). |
 | `src/Mitsuke.Cli` | Local runner: `migrate`, `seed`, `scan`. |
 | `tests/Mitsuke.Tests` | xUnit unit tests, plus integration tests against a real Postgres via Testcontainers. Hand-written fixtures (no copied API data; the provider's terms forbid redistributing raw feeds). |

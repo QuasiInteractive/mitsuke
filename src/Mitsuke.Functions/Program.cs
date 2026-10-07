@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Mitsuke.Core;
 using Mitsuke.Data;
+using Mitsuke.Kensaya;
 using Mitsuke.Notifications;
 using Mitsuke.Pricing;
 using Mitsuke.Sources.TheCarApi;
@@ -19,6 +20,7 @@ builder.Services.AddMitsukeData(builder.Configuration["MITSUKE_DB"] ?? "");
 builder.Services.AddMitsukePricing();
 builder.Services.AddTheCarApiSource(builder.Configuration);
 builder.Services.AddMitsukeNotifications(builder.Configuration);
+builder.Services.AddKensayaSheetDecoding(builder.Configuration);
 builder.Services.AddSingleton<Collector>();
 builder.Services.AddSingleton<AlertSender>();
 

@@ -26,6 +26,8 @@ public sealed partial class AlertSender(
     IListingDetailsStore detailsStore,
     ILandedCostEstimator landedCost,
     IComparablesStore comparables,
+    IEnumerable<ISheetDecoder> sheetDecoders,
+    ISheetReportStore sheetReports,
     INotifier notifier,
     TimeProvider clock,
     ILogger<AlertSender> logger)
@@ -54,8 +56,9 @@ public sealed partial class AlertSender(
             // Details cost one request per car, so they're fetched only for alerts actually going out.
             var details = await GetDetailsAsync(request.ListingId, listing.Key, cancellationToken);
             var deal = DealScorer.Score(listing, await comparables.GetCandidatesAsync(listing, cancellationToken: cancellationToken));
+            var sheet = await GetSheetReportAsync(request.ListingId, details?.CurrentSheet, cancellationToken);
 
-            await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, details, landed, deal), cancellationToken);
+            await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, details, landed, deal, sheet), cancellationToken);
             await alerts.MarkSentAsync(alertId, cancellationToken);
             LogSent(logger, listing.Key, watchlist.Name, notifier.Channel);
             return AlertOutcome.Sent;
@@ -66,6 +69,31 @@ public sealed partial class AlertSender(
             await alerts.MarkFailedAsync(alertId, ex.Message, CancellationToken.None);
             LogSendFailed(logger, ex, listing.Key, notifier.Channel);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// The decoded sheet: cached forever once read (each read is a paid AI call), decoded on first need otherwise.
+    /// Optional by design: no decoder configured, no sheet, or a decoding failure all just mean an alert without it.
+    /// </summary>
+    private async Task<SheetReport?> GetSheetReportAsync(Guid listingId, AuctionSheet? sheet, CancellationToken cancellationToken)
+    {
+        var cached = await sheetReports.GetAsync(listingId, cancellationToken);
+        if (cached is not null && (sheet is null || cached.SheetUrl == sheet.ImageUrl)) return cached;
+        if (sheet is null || sheetDecoders.FirstOrDefault() is not { } decoder) return cached;
+
+        try
+        {
+            var report = await decoder.DecodeAsync(sheet.ImageUrl, cancellationToken);
+            if (report is null) return cached;
+            await sheetReports.SaveAsync(listingId, report, cancellationToken);
+            LogSheetDecoded(logger, listingId, report.RedFlags.Count, report.CostUsd);
+            return report;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogSheetFailed(logger, ex, listingId);
+            return cached;
         }
     }
 
@@ -91,6 +119,12 @@ public sealed partial class AlertSender(
             return cached;
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Decoded sheet for listing {ListingId}: {Flags} red flags, US${Cost}")]
+    private static partial void LogSheetDecoded(ILogger logger, Guid listingId, int flags, decimal cost);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't decode the sheet for listing {ListingId}; alerting without it")]
+    private static partial void LogSheetFailed(ILogger logger, Exception ex, Guid listingId);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Alerted {Key} for '{Watchlist}' via {Channel}")]
     private static partial void LogSent(ILogger logger, ListingKey key, string watchlist, string channel);

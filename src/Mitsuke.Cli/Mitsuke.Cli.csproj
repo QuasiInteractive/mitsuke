@@ -6,6 +6,7 @@
     <ProjectReference Include="..\Mitsuke.Data\Mitsuke.Data.csproj" />
     <ProjectReference Include="..\Mitsuke.Pricing\Mitsuke.Pricing.csproj" />
     <ProjectReference Include="..\Mitsuke.Notifications\Mitsuke.Notifications.csproj" />
+    <ProjectReference Include="..\Mitsuke.Kensaya\Mitsuke.Kensaya.csproj" />
   </ItemGroup>
 
   <ItemGroup>
