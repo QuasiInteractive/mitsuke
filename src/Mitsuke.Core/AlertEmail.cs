@@ -36,7 +36,7 @@ public static class AlertEmailFormatter
         var photo = details?.PhotoUrls is { Count: > 0 } detailPhotos ? detailPhotos[0] : listing.PhotoUrls.Count > 0 ? listing.PhotoUrls[0] : null;
         var facts = new[]
         {
-            listing.MileageKm is { } km ? string.Create(Au, $"{km:N0} km") : null,
+            listing.MileageKm is { } km ? string.Create(Au, $"{km:N0} km{(sheet?.MileageIsDoubtful == true ? " (unverified)" : "")}") : null,
             listing.Grade is { } g ? $"Grade {g}" : null,
             listing.Transmission,
             AlertFormatter.AuctionDay(listing) is { } d ? string.Create(Au, $"Auction {d:ddd d MMM} (Japan)") : null,

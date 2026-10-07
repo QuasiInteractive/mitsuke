@@ -37,6 +37,10 @@ public sealed record SheetReport
     public IReadOnlyList<string> Unclear { get; init; } = [];
     public IReadOnlyList<string> Warnings { get; init; } = [];
 
+    /// <summary>True when the sheet says the odometer can't be trusted (replaced, tampered, doubtful).</summary>
+    public bool MileageIsDoubtful => RedFlags.Any(f => f.Severity == FlagSeverity.High
+        && (f.Title.Contains("mileage", StringComparison.OrdinalIgnoreCase) || f.Title.Contains("odometer", StringComparison.OrdinalIgnoreCase)));
+
     /// <summary>What reading it cost, for the cost log.</summary>
     public string? Model { get; init; }
     public decimal CostUsd { get; init; }

@@ -69,8 +69,10 @@ async function Lot({ id }: { id: string }) {
 }
 
 function Header({ lot }: { lot: LotView }) {
+  // The sheet can say the odometer is wrong; never show the number as if it were fact.
+  const mileageDoubtful = lot.sheet?.redFlags.some((f) => f.severity === "High" && /mileage|odometer/i.test(f.title)) ?? false;
   const chips = [
-    km(lot.mileageKm),
+    lot.mileageKm == null ? null : `${km(lot.mileageKm)}${mileageDoubtful ? " (unverified)" : ""}`,
     lot.grade && `Grade ${lot.grade}${lot.gradeIsRepaired ? " (repaired)" : ""}`,
     lot.transmission,
     lot.rightHandDrive == null ? null : lot.rightHandDrive ? "RHD" : "LHD",

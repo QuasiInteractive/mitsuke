@@ -73,3 +73,75 @@ jobs:
       # next build type-checks too. Pages stream live data at request time, so no API is needed here.
       - name: Build
         run: npm run build
+
+  # Continuous deployment: only from main, only after every test passes. Azure sign-in is OIDC (no stored secrets):
+  # the "mitsuke-github-deploy" identity trusts this repo's production environment and can only deploy to mitsuke-rg
+  # and read its Key Vault.
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [build-and-test, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ vars.WEB_URL }}
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false # never cut a deploy off halfway
+    env:
+      DOTNET_NOLOGO: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Schema first, so new code never meets an old database. Migrations are forward-only and idempotent.
+      - name: Migrate database
+        run: |
+          db="$(az keyvault secret show --vault-name '${{ vars.AZURE_KEYVAULT }}' --name mitsuke-db --query value -o tsv)"
+          echo "::add-mask::$db"
+          MITSUKE_DB="$db" dotnet run --project src/Mitsuke.Cli -c Release -- migrate
+
+      - name: Publish
+        run: |
+          dotnet publish src/Mitsuke.Api -c Release -o out/api
+          dotnet publish src/Mitsuke.Functions -c Release -o out/functions
+
+      - name: Deploy API
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP }}
+          package: out/api
+
+      - name: Deploy pipeline
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ vars.AZURE_FUNCTIONAPP }}
+          package: out/functions
+          sku: flexconsumption
+
+      # Fail the run loudly if production isn't answering after the deploy.
+      - name: Smoke test
+        run: |
+          api="https://$(az webapp show -g '${{ vars.AZURE_RESOURCE_GROUP }}' -n '${{ vars.AZURE_WEBAPP }}' --query defaultHostName -o tsv)"
+          fn="https://$(az functionapp show -g '${{ vars.AZURE_RESOURCE_GROUP }}' -n '${{ vars.AZURE_FUNCTIONAPP }}' --query defaultHostName -o tsv)"
+          for url in "$api/api/health" "$api/api/watchlists" "$fn/api/health" "${{ vars.WEB_URL }}"; do
+            for attempt in 1 2 3 4 5 6; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 60 "$url") && [ "$code" = 200 ] && break
+              echo "$url answered $code, retrying ($attempt)"; sleep 15
+            done
+            [ "$code" = 200 ] || { echo "::error::$url answered $code after deploy"; exit 1; }
+            echo "ok $url"
+          done

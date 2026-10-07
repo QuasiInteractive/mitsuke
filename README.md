@@ -26,7 +26,8 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 | Phone push notifications | Next |
 
 | Auction sheet decoded into plain English via Kensa-ya's partner API; serious red flags lead the alert | ✅ |
-| Bicep IaC, CD, Key Vault, Application Insights in Azure | Planned |
+| Live: [mitsuke-jp.vercel.app](https://mitsuke-jp.vercel.app) on Vercel + Azure (Functions Flex, App Service F1, Key Vault, App Insights) + Supabase, all from Bicep | ✅ |
+| Continuous deployment: push to main → tests → migrate → deploy API + pipeline → smoke test (GitHub Actions, OIDC, no stored secrets); web via Vercel Git | ✅ |
 
 ## Architecture
 
@@ -54,6 +55,7 @@ The same `Collector` and `AlertSender` run in-process for `dotnet run -- scan`, 
 - **A deal score that shows its working.** Each match is ranked against comparable cars (same model code, similar year, mileage and grade; relists collapsed to one car via the `vehicles` table; never compared with itself). It reports how many cars it used and a confidence, and says nothing rather than guess when there are fewer than five. `backfill` seeds comparables from TheCarApi's archive.
 - **Shared brains, private secrets.** Sheet reading is Kensa-ya's paid product, so it is *called*, never copied: Mitsuke posts a sheet URL to Kensa-ya's partner endpoint (bearer key, host allowlist against SSRF) and maps the answer. It runs only for alerts actually going out, is cached per listing (each read is a paid AI call, about US$0.05–0.09), and sits behind its own retry/circuit-breaker pipeline; if Kensa-ya is down, alerts still go out without it.
 - **Auth done the boring, correct way.** Sign-in is Supabase Auth (magic links, no passwords stored by Mitsuke). The API validates its ES256 tokens with stock ASP.NET Core JWT bearer auth, discovering the signing keys from the issuer (no shared secret, rotation needs no deploy). Every `/api/me` query is scoped by the token's subject, and the tests prove a forged, mis-issued, wrong-audience or expired token gets a 401 and that one person can't touch another's watchlists.
+- **Deploys you can trust.** Every push to `main` runs the tests, then (only if they pass) migrates the database, ships the API and the pipeline, and smoke-tests production. GitHub signs in to Azure with OIDC: a deploy identity trusted only for this repo's `production` environment, allowed to deploy to one resource group and read one Key Vault. No Azure credentials are stored anywhere.
 - **Honest data.** Japanese auction prices are opening bids, never sale prices, and `PriceKind` carries that through to the alert text. Unknown values fail filters that need them, so Mitsuke never alerts on a guess. Every alert names its source and carries a disclaimer.
 
 Why things are the way they are: [docs/thecarapi-findings.md](docs/thecarapi-findings.md) covers what the data actually contains, verified against the live API before the schema was designed.

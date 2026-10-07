@@ -50,6 +50,8 @@ public class AlertEmailFormatterTests
             new Uri("https://mitsuke.test/lot/1"), new Uri("https://mitsuke.test/watchlists"));
 
         Assert.Equal("⚠ Found: 1991 Nissan Skyline (BNR32) · est. A$34,157 landed", email.Subject);
+        Assert.Contains("87,000 km (unverified)", email.Html, StringComparison.Ordinal); // odometer flagged: never shown as fact
+        Assert.Contains("87,000 km (unverified)", email.Text, StringComparison.Ordinal);
         Assert.Contains("Mileage marked as doubtful", email.Html, StringComparison.Ordinal);
         Assert.Contains("href=\"https://mitsuke.test/lot/1\"", email.Html, StringComparison.Ordinal);
         Assert.Contains("Pause or change your watchlists", email.Html, StringComparison.Ordinal);

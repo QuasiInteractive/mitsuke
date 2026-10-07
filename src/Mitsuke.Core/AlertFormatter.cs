@@ -22,7 +22,7 @@ public static class AlertFormatter
             .Where(s => !string.IsNullOrEmpty(s)));
 
         var facts = new List<string>();
-        if (listing.MileageKm is { } km) facts.Add(string.Create(Au, $"{km:N0} km"));
+        if (listing.MileageKm is { } km) facts.Add(string.Create(Au, $"{km:N0} km{(sheet?.MileageIsDoubtful == true ? " (unverified)" : "")}"));
         if (listing.Grade is { } grade) facts.Add($"grade {grade}");
         if (listing.IsModified) facts.Add("modified");
         if (listing.Transmission is { } t) facts.Add(t.ToLowerInvariant());
