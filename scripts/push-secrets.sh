@@ -19,10 +19,12 @@ pooler="$(get PROD_DB_POOLER_HOST)"; ref="$(get PROD_SUPABASE_URL | sed -E 's#ht
 db="Host=$pooler;Port=5432;Database=postgres;Username=postgres.$ref;Password=$(get PROD_DB_PASSWORD);SSL Mode=Require;Search Path=mitsuke"
 
 tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
+# az is a Windows program under Git Bash: give it a Windows path (C:\...), not /tmp/...
+aztmp="$tmp"; command -v cygpath >/dev/null && aztmp="$(cygpath -w "$tmp")"
 put() {
   [ -n "$2" ] || { echo "  skipped $1 (empty in .env)"; return; }
   printf '%s' "$2" > "$tmp"
-  az keyvault secret set --vault-name "$vault" --name "$1" --file "$tmp" --encoding utf-8 --output none
+  az keyvault secret set --vault-name "$vault" --name "$1" --file "$aztmp" --encoding utf-8 --output none
   : > "$tmp"
   echo "  set $1"
 }
