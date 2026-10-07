@@ -4,7 +4,7 @@
 #   scripts/deploy-infra.sh            # shows what would change (what-if), then asks before applying
 #   scripts/deploy-infra.sh --yes      # applies without asking
 #
-# Reads PROD_SUPABASE_URL, PROD_WEB_URL, BID_REQUESTS_TO and SMTP_USER from .env, so nothing personal is committed.
+# Reads PROD_SUPABASE_URL, PROD_WEB_URL, BID_REQUESTS_TO, SMTP_USER and VAPID_PUBLIC_KEY from .env, so nothing personal is committed.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -14,6 +14,7 @@ export PROD_SUPABASE_URL="$(get PROD_SUPABASE_URL)"
 export PROD_WEB_URL="$(get PROD_WEB_URL)"
 export BID_REQUESTS_TO="$(get BID_REQUESTS_TO)"
 export SMTP_USER="$(get SMTP_USER)"
+export VAPID_PUBLIC_KEY="$(get VAPID_PUBLIC_KEY)"   # empty leaves phone notifications off
 export ADMIN_PRINCIPAL_ID="$(az ad signed-in-user show --query id -o tsv)"
 for v in PROD_SUPABASE_URL BID_REQUESTS_TO SMTP_USER; do
   [ -n "${!v}" ] || { echo "Set $v in .env first."; exit 1; }
