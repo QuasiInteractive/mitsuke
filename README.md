@@ -1,5 +1,7 @@
 # Mitsuke 見つけ
 
+[![CI](https://github.com/QuasiInteractive/mitsuke/actions/workflows/ci.yml/badge.svg)](https://github.com/QuasiInteractive/mitsuke/actions/workflows/ci.yml)
+
 A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3.5+, under 150,000 km") and Mitsuke watches Japanese auctions, then alerts you with the facts, an estimated landed cost and a link to the full report.
 
 > Sister product to [Kensa-ya](https://kensa-ya.vercel.app): **Mitsuke finds the car → Kensa-ya checks the car.**
