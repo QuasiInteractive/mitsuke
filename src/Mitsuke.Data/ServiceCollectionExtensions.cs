@@ -16,6 +16,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IListingStore, PostgresListingStore>();
         services.AddSingleton<IWatchlistStore, PostgresWatchlistStore>();
         services.AddSingleton<IAlertLog, PostgresAlertLog>();
+        services.AddSingleton<IListingDetailsStore, PostgresListingDetailsStore>();
         return services;
     }
 }

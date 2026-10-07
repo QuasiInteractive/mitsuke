@@ -137,6 +137,36 @@ public sealed class PostgresStoreTests(PostgresFixture pg) : IAsyncLifetime
         Assert.Equal(2, await conn.ExecuteScalarAsync<int>("select attempts from alerts where id = @id", new { id = first.Value }));
     }
 
+    [Fact]
+    public async Task Listing_details_round_trip_through_jsonb()
+    {
+        var listing = await _listings.UpsertAsync(Lot("1"));
+        var store = new PostgresListingDetailsStore(pg.Db);
+        var details = new ListingDetails
+        {
+            Key = new ListingKey("thecarapi-japan", "1"),
+            FetchedAt = new DateTimeOffset(2026, 10, 7, 1, 2, 3, TimeSpan.Zero),
+            Sheets = [new AuctionSheet(new Uri("https://api.thecarapi.com/report-vault/japan/1/a.jpg"), new DateOnly(2026, 9, 4), IsCurrent: true)],
+            Relists = [new Relist(new DateOnly(2026, 9, 4), "USS Tokyo", "123", AuctionGrade.Parse("3.5"), 48_000, new Money(3_980_000m, "JPY"), "probable", ["mileage_km"])],
+            InteriorGrade = "C",
+            EngineCc = 2600,
+            PhotoUrls = [new Uri("https://api.thecarapi.com/auction-photo/japan/1/0")],
+        };
+
+        Assert.Null(await store.GetAsync(listing.ListingId));
+        await store.SaveAsync(listing.ListingId, details);
+        await store.SaveAsync(listing.ListingId, details with { InteriorGrade = "B" }); // upsert, not duplicate
+
+        var loaded = (await store.GetAsync(listing.ListingId))!;
+        Assert.Equal("B", loaded.InteriorGrade);
+        Assert.Equal(details.FetchedAt, loaded.FetchedAt);
+        Assert.Equal(details.Sheets, loaded.Sheets);
+        Assert.Equal(details.PhotoUrls, loaded.PhotoUrls);
+        var relist = Assert.Single(loaded.Relists);
+        Assert.Equal((details.Relists[0].AuctionDate, details.Relists[0].OpeningBid, details.Relists[0].Grade), (relist.AuctionDate, relist.OpeningBid, relist.Grade));
+        Assert.Equal(["mileage_km"], relist.Changes);
+    }
+
     private async Task<(Guid WatchlistId, Guid ListingId)> SeedAsync()
     {
         var watchlist = new Watchlist { Id = Guid.NewGuid(), Name = "any", Make = "Nissan", Model = "Skyline" };

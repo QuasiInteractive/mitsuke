@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Mitsuke.Core;
 
-public sealed record ScanResult(int Watchlists, int Seen, int New, int Matched, int Sent, int Failed, int AlreadyAlerted);
+public sealed record ScanResult(int Watchlists, int Seen, int New, int Matched, int Sent, int Failed, int AlreadyAlerted, int DetailsFetched = 0);
 
 /// <summary>
 /// One pass of the pipeline: collect -> store (dedupe + price history) -> match -> alert once.
@@ -13,12 +13,20 @@ public sealed partial class Scanner(
     IListingStore listings,
     IWatchlistStore watchlists,
     IAlertLog alerts,
+    IEnumerable<IListingDetailsSource> detailSources,
+    IListingDetailsStore detailsStore,
     INotifier notifier,
     TimeProvider clock,
     ILogger<Scanner> logger)
 {
+    /// <summary>Cached details younger than this are reused rather than refetched.</summary>
+    public static readonly TimeSpan DetailsMaxAge = TimeSpan.FromHours(24);
+
+    private int _detailsFetched;
+
     public async Task<ScanResult> RunAsync(CancellationToken cancellationToken = default)
     {
+        _detailsFetched = 0;
         var active = await watchlists.GetActiveAsync(cancellationToken);
         int seen = 0, fresh = 0, matched = 0, sent = 0, failed = 0, already = 0;
 
@@ -49,7 +57,9 @@ public sealed partial class Scanner(
 
                     try
                     {
-                        await notifier.SendAsync(AlertFormatter.Format(watchlist, listing), cancellationToken);
+                        // Details cost one request per car, so they're fetched only for alerts actually going out.
+                        var details = await GetDetailsAsync(stored.ListingId, listing.Key, cancellationToken);
+                        await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, details), cancellationToken);
                         await alerts.MarkSentAsync(alertId, cancellationToken);
                         sent++;
                     }
@@ -64,10 +74,37 @@ public sealed partial class Scanner(
             }
         }
 
-        var result = new ScanResult(active.Count, seen, fresh, matched, sent, failed, already);
-        LogDone(logger, result.Watchlists, result.Seen, result.New, result.Matched, result.Sent, result.Failed, result.AlreadyAlerted);
+        var result = new ScanResult(active.Count, seen, fresh, matched, sent, failed, already, _detailsFetched);
+        LogDone(logger, result.Watchlists, result.Seen, result.New, result.Matched, result.Sent, result.Failed, result.AlreadyAlerted, result.DetailsFetched);
         return result;
     }
+
+    /// <summary>Cached details if fresh; otherwise fetch and cache. A failed fetch degrades to cached-or-none, never blocks the alert.</summary>
+    private async Task<ListingDetails?> GetDetailsAsync(Guid listingId, ListingKey key, CancellationToken cancellationToken)
+    {
+        var cached = await detailsStore.GetAsync(listingId, cancellationToken);
+        if (cached is not null && clock.GetUtcNow() - cached.FetchedAt < DetailsMaxAge) return cached;
+
+        var source = detailSources.FirstOrDefault(s => s.CanFetch(key));
+        if (source is null) return cached;
+
+        try
+        {
+            var fetched = await source.GetDetailsAsync(key, cancellationToken);
+            if (fetched is null) return cached;
+            await detailsStore.SaveAsync(listingId, fetched, cancellationToken);
+            _detailsFetched++;
+            return fetched;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogDetailsFailed(logger, ex, key);
+            return cached;
+        }
+    }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Couldn't fetch details for {Key}; alerting without them")]
+    private static partial void LogDetailsFailed(ILogger logger, Exception ex, ListingKey key);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "{Key} rejected for '{Watchlist}': {Reasons}")]
     private static partial void LogRejected(ILogger logger, ListingKey key, string watchlist, IReadOnlyList<string> reasons);
@@ -76,6 +113,6 @@ public sealed partial class Scanner(
     private static partial void LogSendFailed(ILogger logger, Exception ex, ListingKey key, string channel);
 
     [LoggerMessage(Level = LogLevel.Information,
-        Message = "Scan done: {Watchlists} watchlists, {Seen} listings ({New} new), {Matched} matched, {Sent} sent, {Failed} failed, {Already} already alerted")]
-    private static partial void LogDone(ILogger logger, int watchlists, int seen, int @new, int matched, int sent, int failed, int already);
+        Message = "Scan done: {Watchlists} watchlists, {Seen} listings ({New} new), {Matched} matched, {Sent} sent, {Failed} failed, {Already} already alerted, {Details} details fetched")]
+    private static partial void LogDone(ILogger logger, int watchlists, int seen, int @new, int matched, int sent, int failed, int already, int details);
 }

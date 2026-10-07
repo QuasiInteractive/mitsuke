@@ -10,7 +10,7 @@ namespace Mitsuke.Sources.TheCarApi;
 
 /// <summary>Japanese auction lots from TheCarApi's <c>japan</c> source. Retries, circuit breaking and rate limiting live on the HttpClient (see <see cref="ServiceCollectionExtensions"/>).</summary>
 public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiOptions> options, TimeProvider clock, ILogger<TheCarApiSource> logger)
-    : IListingSource
+    : IListingSource, IListingDetailsSource
 {
     internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
@@ -58,6 +58,35 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
         LogPageCapHit(logger, opts.MaxPagesPerSearch, query.Make, query.Model);
     }
 
+    public bool CanFetch(ListingKey key) => key.Source == JapanListingMapper.SourceName;
+
+    public async Task<ListingDetails?> GetDetailsAsync(ListingKey key, CancellationToken cancellationToken = default)
+    {
+        if (!CanFetch(key)) throw new ArgumentException($"Not a {Name} listing: {key}", nameof(key));
+        var url = $"/api/auction/japan/{Uri.EscapeDataString(key.SourceId)}";
+
+        using var response = await http.GetAsync(url, cancellationToken);
+        var requestId = response.Headers.TryGetValues("X-Request-ID", out var ids) ? ids.FirstOrDefault() : null;
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            LogDetailMissing(logger, key.SourceId, requestId);
+            return null;
+        }
+        if (!response.IsSuccessStatusCode)
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            LogSearchFailed(logger, (int)response.StatusCode, url, requestId, body.Length > 300 ? body[..300] : body);
+            response.EnsureSuccessStatusCode();
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<DetailResponse>(Json, cancellationToken);
+        if (result?.Auction is not { } auction) return null;
+
+        var details = JapanDetailsMapper.Map(key, auction, options.Value.BaseAddress, clock.GetUtcNow());
+        LogDetail(logger, key.SourceId, details.Sheets.Count, details.Relists.Count, requestId);
+        return details;
+    }
+
     internal static string BuildSearchUrl(SourceQuery query, int offset, int limit)
     {
         var parts = new List<string>
@@ -77,7 +106,13 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
     [LoggerMessage(Level = LogLevel.Information, Message = "TheCarApi search offset {Offset}: {Rows} rows of {Total} (request {RequestId})")]
     private static partial void LogPage(ILogger logger, int offset, int rows, long? total, string? requestId);
 
-    [LoggerMessage(Level = LogLevel.Error, Message = "TheCarApi search returned {Status} for {Url} (request {RequestId}): {Body}")]
+    [LoggerMessage(Level = LogLevel.Information, Message = "TheCarApi detail {AuctionId}: {Sheets} sheets, {Relists} relists (request {RequestId})")]
+    private static partial void LogDetail(ILogger logger, string auctionId, int sheets, int relists, string? requestId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "TheCarApi detail {AuctionId} not found (request {RequestId})")]
+    private static partial void LogDetailMissing(ILogger logger, string auctionId, string? requestId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "TheCarApi request returned {Status} for {Url} (request {RequestId}): {Body}")]
     private static partial void LogSearchFailed(ILogger logger, int status, string url, string? requestId, string body);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Skipped TheCarApi row {AuctionId}: missing id, make or model")]

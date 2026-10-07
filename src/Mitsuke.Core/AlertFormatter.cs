@@ -11,7 +11,7 @@ public static class AlertFormatter
     private static readonly TimeSpan Jst = TimeSpan.FromHours(9);
     private static readonly CultureInfo Au = CultureInfo.GetCultureInfo("en-AU");
 
-    public static string Format(Watchlist watchlist, Listing listing)
+    public static string Format(Watchlist watchlist, Listing listing, ListingDetails? details = null)
     {
         ArgumentNullException.ThrowIfNull(watchlist);
         ArgumentNullException.ThrowIfNull(listing);
@@ -39,6 +39,21 @@ public static class AlertFormatter
         {
             var lot = listing.LotNumber is null ? "" : $", lot {listing.LotNumber}";
             sb.AppendLine(string.Create(Au, $"Auction {day:ddd d MMM} (Japan){lot}"));
+        }
+
+        if (details is not null)
+        {
+            if (details.Relists.Count > 0)
+            {
+                var first = details.Relists.Min(r => r.AuctionDate);
+                var times = details.Relists.Count == 1 ? "once" : $"{details.Relists.Count} times";
+                sb.AppendLine(string.Create(Au, $"Seen at auction {times} before, since {first:d MMM}."));
+            }
+
+            var changed = details.Relists.SelectMany(r => r.Changes).Where(c => c.Length > 0).Distinct().ToList();
+            if (changed.Count > 0) sb.AppendLine(CultureInfo.InvariantCulture, $"Check: {string.Join(", ", changed)} changed between auctions.");
+
+            if (details.CurrentSheet is not null) sb.AppendLine("Auction sheet available.");
         }
 
         sb.AppendLine(listing.Attribution);

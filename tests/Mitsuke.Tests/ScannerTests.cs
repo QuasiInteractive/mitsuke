@@ -14,6 +14,7 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
 
     private readonly FakeSource _source = new();
     private readonly FakeNotifier _notifier = new();
+    private readonly FakeDetails _details = new();
 
     public async Task InitializeAsync()
     {
@@ -36,6 +37,8 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
         new PostgresListingStore(pg.Db),
         new PostgresWatchlistStore(pg.Db),
         new PostgresAlertLog(pg.Db),
+        [_details],
+        new PostgresListingDetailsStore(pg.Db),
         _notifier,
         new FakeTimeProvider(Now),
         NullLogger<Scanner>.Instance);
@@ -55,7 +58,7 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
         var first = await CreateScanner().RunAsync();
         var second = await CreateScanner().RunAsync();
 
-        Assert.Equal(new ScanResult(Watchlists: 1, Seen: 2, New: 2, Matched: 1, Sent: 1, Failed: 0, AlreadyAlerted: 0), first);
+        Assert.Equal(new ScanResult(Watchlists: 1, Seen: 2, New: 2, Matched: 1, Sent: 1, Failed: 0, AlreadyAlerted: 0, DetailsFetched: 1), first);
         Assert.Equal(new ScanResult(Watchlists: 1, Seen: 2, New: 0, Matched: 1, Sent: 0, Failed: 0, AlreadyAlerted: 1), second);
         Assert.Single(_notifier.Sent);
         Assert.Contains("[R32 GT-R]", _notifier.Sent[0], StringComparison.Ordinal);
@@ -86,6 +89,51 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
         var second = await CreateScanner().RunAsync();
         Assert.Equal((1, 0, 1), (second.Sent, second.Failed, second.AlreadyAlerted));
         Assert.Equal(2, _notifier.Sent.Count); // each car alerted exactly once in the end
+    }
+
+    [Fact]
+    public async Task Details_are_fetched_once_per_new_alert_and_cached()
+    {
+        _source.Lots = [Lot("gtr-1"), Lot("gts-1", modelCode: "HCR32")];
+
+        var first = await CreateScanner().RunAsync();
+        await CreateScanner().RunAsync();
+
+        Assert.Equal(1, first.DetailsFetched);
+        Assert.Equal(["gtr-1"], _details.Requested); // non-matches and repeat scans cost nothing
+        Assert.Contains("Auction sheet available.", _notifier.Sent[0], StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_details_failure_still_sends_the_alert()
+    {
+        _source.Lots = [Lot("gtr-1")];
+        _details.Fail = true;
+
+        var result = await CreateScanner().RunAsync();
+
+        Assert.Equal((1, 0, 0), (result.Sent, result.Failed, result.DetailsFetched));
+        Assert.DoesNotContain("Auction sheet", _notifier.Sent[0], StringComparison.Ordinal);
+    }
+
+    private sealed class FakeDetails : IListingDetailsSource
+    {
+        public List<string> Requested { get; } = [];
+        public bool Fail { get; set; }
+
+        public bool CanFetch(ListingKey key) => key.Source == "fake";
+
+        public Task<ListingDetails?> GetDetailsAsync(ListingKey key, CancellationToken cancellationToken = default)
+        {
+            Requested.Add(key.SourceId);
+            if (Fail) throw new HttpRequestException("detail endpoint down");
+            return Task.FromResult<ListingDetails?>(new ListingDetails
+            {
+                Key = key,
+                FetchedAt = Now,
+                Sheets = [new AuctionSheet(new Uri("https://example.test/sheet.jpg"), null, IsCurrent: true)],
+            });
+        }
     }
 
     private sealed class FakeSource : IListingSource
