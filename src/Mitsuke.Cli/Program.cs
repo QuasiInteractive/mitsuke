@@ -12,6 +12,7 @@ using Microsoft.Extensions.Logging;
 using Mitsuke.Cli;
 using Mitsuke.Core;
 using Mitsuke.Data;
+using Mitsuke.Pricing;
 using Mitsuke.Sources.TheCarApi;
 
 if (args is not [("migrate" or "seed" or "scan") and var command])
@@ -28,6 +29,7 @@ builder.Logging.AddFilter("System.Net.Http", LogLevel.Warning);
 builder.Logging.AddFilter("Polly", LogLevel.Warning); // retries and breaker trips still show
 
 builder.Services.AddMitsukeData(builder.Configuration["MITSUKE_DB"] ?? "");
+builder.Services.AddMitsukePricing();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<Scanner>();
 builder.Services.AddHttpClient("discord");

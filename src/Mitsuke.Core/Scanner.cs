@@ -15,6 +15,7 @@ public sealed partial class Scanner(
     IAlertLog alerts,
     IEnumerable<IListingDetailsSource> detailSources,
     IListingDetailsStore detailsStore,
+    ILandedCostEstimator landedCost,
     INotifier notifier,
     TimeProvider clock,
     ILogger<Scanner> logger)
@@ -41,7 +42,12 @@ public sealed partial class Scanner(
                     var stored = await listings.UpsertAsync(listing, cancellationToken);
                     if (stored.IsNew) fresh++;
 
-                    var mismatches = WatchlistMatcher.Mismatches(watchlist, listing, clock.GetUtcNow());
+                    // Local maths plus a cached exchange rate: cheap enough to run for every listing.
+                    var landed = listing.Price is { } price
+                        ? await landedCost.EstimateAsync(price, watchlist.Destination, cancellationToken)
+                        : null;
+
+                    var mismatches = WatchlistMatcher.Mismatches(watchlist, listing, clock.GetUtcNow(), landed);
                     if (mismatches.Count > 0)
                     {
                         LogRejected(logger, listing.Key, watchlist.Name, mismatches);
@@ -59,7 +65,7 @@ public sealed partial class Scanner(
                     {
                         // Details cost one request per car, so they're fetched only for alerts actually going out.
                         var details = await GetDetailsAsync(stored.ListingId, listing.Key, cancellationToken);
-                        await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, details), cancellationToken);
+                        await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, details, landed), cancellationToken);
                         await alerts.MarkSentAsync(alertId, cancellationToken);
                         sent++;
                     }

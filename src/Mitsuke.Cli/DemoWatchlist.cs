@@ -15,7 +15,8 @@ internal static class DemoWatchlist
         YearTo = 1994,
         MaxMileageKm = 150_000,
         MinGrade = 3.5m,
-        // ~A$45K landed works back to roughly ¥4.5M at auction; replaced by a real landed-cost limit later.
-        MaxPrice = new Money(4_500_000m, "JPY"),
+        // The brief's example: "R32 GT-R, under $45K AUD landed".
+        Destination = "AU",
+        MaxLanded = new Money(45_000m, "AUD"),
     };
 }

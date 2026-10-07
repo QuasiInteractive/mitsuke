@@ -39,6 +39,7 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
         new PostgresAlertLog(pg.Db),
         [_details],
         new PostgresListingDetailsStore(pg.Db),
+        Landed.Estimator,
         _notifier,
         new FakeTimeProvider(Now),
         NullLogger<Scanner>.Instance);

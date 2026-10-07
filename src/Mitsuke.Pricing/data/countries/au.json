@@ -1,0 +1,291 @@
+{
+  "code": "AU",
+  "name": "Australia",
+  "currency": "AUD",
+  "locale": "en-AU",
+  "rules_checked_on": "2026-09-30",
+  "fx": {
+    "jpy_per_unit": 110,
+    "source_url": "https://www.frankfurter.dev/",
+    "checked_on": "2026-09-29",
+    "note": "Fallback only. The site uses the live European Central Bank reference rate (via Frankfurter), refreshed every 6 hours; this value is used if that service is unreachable. Set from the ECB rate on 2026-09-29."
+  },
+  "inputs": {
+    "ask_fuel_efficient": true,
+    "ask_engine_cc": false
+  },
+  "cost_lines": [
+    {
+      "type": "price",
+      "id": "vehicle",
+      "label": "Vehicle price",
+      "help": "Hammer or FOB price converted from JPY. Exporter fees and Japanese inland transport are extra (roughly ¥50,000 to ¥150,000)."
+    },
+    {
+      "type": "range",
+      "id": "shipping",
+      "label": "Shipping to Australia (RoRo)",
+      "help": "Roll-on roll-off to Melbourne, Sydney or Brisbane. Fremantle is at the high end. Containers cost more.",
+      "low": 1500,
+      "high": 4500,
+      "source_url": "https://www.jdmbuysell.com/learn/topics/importing-to-australia/",
+      "checked_on": "2026-09-30",
+      "note": "Industry figures from Australian importers published in 2026, not official."
+    },
+    {
+      "type": "percent",
+      "id": "insurance",
+      "label": "Marine insurance",
+      "help": "Optional, but the border includes an insurance amount in the taxable value either way.",
+      "rate": 1.5,
+      "basis": [
+        "vehicle"
+      ],
+      "source_url": "https://www.jdmbuysell.com/learn/topics/importing-to-australia/",
+      "checked_on": "2026-09-30",
+      "note": "Industry: 1.5% to 2% of value, about $350 minimum."
+    },
+    {
+      "type": "percent",
+      "id": "duty",
+      "label": "Customs duty (JAEPA, Japanese-built)",
+      "help": "0% for cars built in Japan under the Japan-Australia Economic Partnership Agreement. Must be claimed on the import declaration with an origin document; otherwise the general rate is 5%.",
+      "rate": 0,
+      "basis": [
+        "vehicle"
+      ],
+      "source_url": "https://www.abf.gov.au/importing-exporting-and-manufacturing/tariff-classification/current-tariff/schedule-11",
+      "checked_on": "2026-09-30",
+      "note": "Schedule 3 Ch.87 general rate 5% for used passenger cars; Schedule 11 (Japanese originating goods) lists no 87xx exception so rate is Free. Preference code JEPA."
+    },
+    {
+      "type": "percent",
+      "id": "gst",
+      "label": "GST",
+      "help": "10% of the value of the taxable importation: vehicle plus freight, insurance and duty.",
+      "rate": 10,
+      "basis": [
+        "vehicle",
+        "shipping",
+        "insurance",
+        "duty"
+      ],
+      "source_url": "https://www.abf.gov.au/importing-exporting-and-manufacturing/importing/how-to-import/types-of-imports/importing-a-motor-vehicle",
+      "checked_on": "2026-09-30",
+      "note": "Paid to ABF before release from customs control."
+    },
+    {
+      "type": "threshold_percent",
+      "id": "lct",
+      "label": "Luxury car tax",
+      "help": "33% of the amount above the threshold, GST-exclusive. The LCT value includes freight, insurance, duty and GST. Applies on first import whatever the car's age.",
+      "rate": 33,
+      "basis": [
+        "vehicle",
+        "shipping",
+        "insurance",
+        "duty",
+        "gst"
+      ],
+      "threshold": 80809,
+      "threshold_alt": 91661,
+      "threshold_alt_label": "Fuel-efficient (3.5 L/100 km or better)",
+      "excess_factor": 0.909090909,
+      "source_url": "https://www.ato.gov.au/tax-rates-and-codes/luxury-car-tax-rate-and-thresholds",
+      "checked_on": "2026-06-01",
+      "note": "2026-27 thresholds: $80,809 other vehicles, $91,661 fuel-efficient. Since 1 July 2025 fuel-efficient means 3.5 L/100 km combined or better, so petrol JDM cars use the lower threshold."
+    },
+    {
+      "type": "fixed",
+      "id": "import_approval",
+      "label": "ROVER import approval (older vehicle)",
+      "help": "Concessional RAV entry approval for 25+ year vehicles, includes the RAV charge. SEVS route is $95 plus $109 RAV charge instead.",
+      "amount": 42.2,
+      "source_url": "https://www.infrastructure.gov.au/sites/default/files/documents/rvs-legislation-fees-charges.pdf",
+      "checked_on": "2023-05-09",
+      "note": "Fees document published May 2023 and still the linked schedule; confirm in ROVER at payment time."
+    },
+    {
+      "type": "range",
+      "id": "port_broker",
+      "label": "Port handling and customs broker",
+      "help": "Wharf and unloading fees plus a broker to lodge the import declaration.",
+      "low": 700,
+      "high": 1800,
+      "source_url": "https://www.jdmbuysell.com/learn/topics/importing-to-australia/",
+      "checked_on": "2026-09-30",
+      "note": "Industry ranges. ABF import processing and DAFF declaration charges are small and usually bundled."
+    },
+    {
+      "type": "range",
+      "id": "quarantine",
+      "label": "Biosecurity inspection and cleaning",
+      "help": "DAFF inspects used vehicles on arrival and charges per 15 minutes. Dirt, seeds or insects mean paid steam cleaning and re-inspection.",
+      "low": 200,
+      "high": 1400,
+      "source_url": "https://www.agriculture.gov.au/biosecurity-trade/import/goods/vehicles-machinery",
+      "checked_on": "2025-07-10",
+      "note": "Pre-export cleaning by a Recognised Offshore Cleaning Provider in Japan avoids most delays."
+    },
+    {
+      "type": "range",
+      "id": "asbestos",
+      "label": "Asbestos assurance",
+      "help": "Zero tolerance at the border for any age of vehicle. Pre-2000s cars are most at risk; test or replace gaskets, brake and clutch material before shipping and keep records.",
+      "low": 200,
+      "high": 3500,
+      "source_url": "https://www.abf.gov.au/prohibited-goods-subsite/files/fs-asbestos-risk-importing-vehicle.pdf",
+      "checked_on": "2022-11-01",
+      "note": "No official fee. Industry: $200 to $500 for basic pre-shipment testing, up to $3,500 for full test-and-certify packages."
+    },
+    {
+      "type": "range",
+      "id": "compliance",
+      "label": "Compliance (older vehicle: roadworthy, VIN, engineer)",
+      "help": "25+ year cars need no workshop modification, just state roadworthy and paperwork. Cars under 25 on the SEVS register need a Registered Automotive Workshop: budget $3,000 to $10,000 instead.",
+      "low": 1800,
+      "high": 3500,
+      "source_url": "https://www.jdmbuysell.com/learn/topics/importing-to-australia/",
+      "checked_on": "2026-09-30",
+      "note": "Industry ranges, not official."
+    },
+    {
+      "type": "range",
+      "id": "registration",
+      "label": "First registration and CTP",
+      "help": "Varies by state. Excludes state stamp duty on first registration (roughly 3% to 4.2% of value), which can add thousands on a $50k car.",
+      "low": 500,
+      "high": 1500,
+      "source_url": "https://www.mozo.com.au/insurance/car-insurance/guides/how-much-is-car-registration-in-australia",
+      "checked_on": "2026-06-24",
+      "note": "Industry summary of state fees."
+    }
+  ],
+  "totals_note": "Excludes exporter commission, Japanese inland transport, state stamp duty and any repairs needed to pass roadworthy. Duty, GST and LCT follow official rates; other lines are typical market ranges.",
+  "eligibility": {
+    "intro": "Australia allows private imports of used cars mainly under two pathways: the older-vehicle rule (25 or more years old) and the Specialist and Enthusiast Vehicle Scheme (SEVS) for listed models under 25. An import approval from ROVER is needed before the car ships.",
+    "pathways": [
+      {
+        "id": "older_vehicle_25yr",
+        "name": "Older vehicle (25-year rule)",
+        "summary": "Vehicles whose build date is at least 25 years before the date of the ROVER application can be entered on the Register of Approved Vehicles without modification.",
+        "criteria": {
+          "type": "min_age_years",
+          "years": 25,
+          "measured_from": "manufacture"
+        },
+        "result_if_met": "yes",
+        "typical_cost_line": "compliance",
+        "source_url": "https://www.infrastructure.gov.au/infrastructure-transport-vehicles/vehicles/importing-vehicle/concessional-rav-entry-approvals",
+        "checked_on": "2026-09-30",
+        "note": "Road Vehicle Standards Rules 2019 s.36: relevant build date is when assembly was first completed, or the date of the last significant modification (body, chassis, drivetrain, brakes, steering conversion) if later. Where only the year is known the month is taken as December. Measured to the application date, not arrival. Fee $42.20. Does not guarantee state registration."
+      },
+      {
+        "id": "sevs",
+        "name": "SEVS register",
+        "summary": "Vehicles under 25 years old can be imported if the exact make, model and variant is on the SEVs Register and a Registered Automotive Workshop holds an approved Model Report to comply it.",
+        "criteria": {
+          "type": "register",
+          "register_name": "SEVs Register",
+          "register_url": "https://www.infrastructure.gov.au/infrastructure-transport-vehicles/vehicles/rvs/specialist-enthusiast-vehicles"
+        },
+        "result_if_met": "maybe",
+        "typical_cost_line": "compliance",
+        "source_url": "https://www.infrastructure.gov.au/infrastructure-transport-vehicles/vehicles/rvs/specialist-enthusiast-vehicles",
+        "checked_on": "2026-09-30",
+        "note": "Application $95 plus $109 RAV charge. The register entry must be valid both when you apply and when the decision is made. Being listed does not guarantee a workshop can comply it; RAW work typically $3,000 to $10,000."
+      },
+      {
+        "id": "personal_import",
+        "name": "Personal effects (migrants and returning Australians)",
+        "summary": "Only for people moving to Australia who owned and used the car overseas for at least 12 months. Not available for a car bought at auction from Australia.",
+        "criteria": {
+          "type": "manual",
+          "instructions": "Only applies if you lived overseas, owned and used this car for 12 or more months before arriving, and apply within 6 months of arrival. Otherwise ignore this pathway."
+        },
+        "result_if_met": "maybe",
+        "source_url": "https://www.infrastructure.gov.au/sites/default/files/documents/importing-a-vehicle-as-personal-effects-overview-april2024.pdf",
+        "checked_on": "2024-04-01",
+        "note": "Fee $57.20 including RAV charge."
+      }
+    ],
+    "hard_blocks": [
+      {
+        "id": "asbestos",
+        "summary": "Any asbestos-containing part (gaskets, brake or clutch linings) is prohibited at the border regardless of vehicle age.",
+        "source_url": "https://www.abf.gov.au/prohibited-goods-subsite/files/fs-asbestos-risk-importing-vehicle.pdf",
+        "checked_on": "2022-11-01",
+        "note": ""
+      },
+      {
+        "id": "no_approval",
+        "summary": "Importing a road vehicle without a ROVER import approval is an offence; the car can be held, exported or destroyed at your cost.",
+        "source_url": "https://www.infrastructure.gov.au/infrastructure-transport-vehicles/vehicles/importing-road-vehicle-australia",
+        "checked_on": "2026-09-30",
+        "note": ""
+      },
+      {
+        "id": "modified_reset",
+        "summary": "A significant modification less than 25 years old (engine swap, chassis, brakes, steering conversion) resets the build date and pushes the car out of the older-vehicle pathway into a non-registrable approval.",
+        "source_url": "https://www.infrastructure.gov.au/infrastructure-transport-vehicles/vehicles/importing-vehicle/concessional-rav-entry-approvals",
+        "checked_on": "2026-09-30",
+        "note": ""
+      }
+    ],
+    "links": [
+      {
+        "label": "ROVER (apply for import approval)",
+        "url": "https://rover.infrastructure.gov.au/"
+      },
+      {
+        "label": "SEVs Register",
+        "url": "https://www.infrastructure.gov.au/infrastructure-transport-vehicles/vehicles/rvs/specialist-enthusiast-vehicles"
+      },
+      {
+        "label": "ABF: importing a motor vehicle",
+        "url": "https://www.abf.gov.au/importing-exporting-and-manufacturing/importing/how-to-import/types-of-imports/importing-a-motor-vehicle"
+      },
+      {
+        "label": "ATO: luxury car tax thresholds",
+        "url": "https://www.ato.gov.au/tax-rates-and-codes/luxury-car-tax-rate-and-thresholds"
+      }
+    ],
+    "modification_caveat": {
+      "summary": "Under the older-vehicle rule, the build date that counts is the date of the last significant modification (body, chassis, drivetrain, braking or steering) if that is later than the original build. A significant modification made less than 25 years ago moves the car out of the older-vehicle pathway and it may not be registrable. Find out when these parts were fitted and ask a compliance workshop before you bid.",
+      "trigger_keywords": [
+        "brake",
+        "caliper",
+        "engine",
+        "turbo",
+        "intercooler",
+        "gearbox",
+        "transmission",
+        "differential",
+        "body kit",
+        "aero",
+        "widebody",
+        "wide body",
+        "chassis",
+        "steering conversion",
+        "swap",
+        "roll cage",
+        "coilover",
+        "suspension"
+      ],
+      "affects_pathways": [
+        "older_vehicle_25yr"
+      ],
+      "source_url": "https://www.infrastructure.gov.au/infrastructure-transport-vehicles/vehicles/importing-vehicle/concessional-rav-entry-approvals",
+      "checked_on": "2026-09-30",
+      "note": "Road Vehicle Standards Rules 2019 s.36(2): relevant build date is when assembly was first completed, or when the last significant modification was completed if later. The keyword list is a conservative screen, not a legal test; it can flag parts that are not significant modifications."
+    }
+  },
+  "gotchas": [
+    "Get the ROVER import approval before the car ships. Account ID checks can take weeks and assessment up to 30 business days.",
+    "The 25-year test runs from the build date to the date of your ROVER application, and where only the year is known the month counts as December.",
+    "JAEPA 0% duty is not automatic: claim preference code JEPA with an origin document, or you pay 5%.",
+    "LCT value includes freight, insurance and GST, so a car around A$70k landed can trip the threshold.",
+    "Air-conditioned vehicles can trigger refrigerant (ODS/SGG) import licence rules; check the DCCEEW exemption before shipping.",
+    "A RAV entry does not guarantee state registration: states set their own rules and charge stamp duty on top."
+  ]
+}

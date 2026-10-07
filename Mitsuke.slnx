@@ -3,6 +3,7 @@
     <Project Path="src/Mitsuke.Cli/Mitsuke.Cli.csproj" />
     <Project Path="src/Mitsuke.Core/Mitsuke.Core.csproj" />
     <Project Path="src/Mitsuke.Data/Mitsuke.Data.csproj" />
+    <Project Path="src/Mitsuke.Pricing/Mitsuke.Pricing.csproj" />
     <Project Path="src/Mitsuke.Sources.TheCarApi/Mitsuke.Sources.TheCarApi.csproj" />
   </Folder>
   <Folder Name="/tests/">

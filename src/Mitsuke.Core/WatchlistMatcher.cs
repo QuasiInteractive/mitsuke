@@ -4,8 +4,8 @@ namespace Mitsuke.Core;
 
 public static class WatchlistMatcher
 {
-    public static bool IsMatch(Watchlist watchlist, Listing listing, DateTimeOffset? now = null) =>
-        Mismatches(watchlist, listing, now).Count == 0;
+    public static bool IsMatch(Watchlist watchlist, Listing listing, DateTimeOffset? now = null, LandedEstimate? landed = null) =>
+        Mismatches(watchlist, listing, now, landed).Count == 0;
 
     /// <summary>
     /// Every reason the listing fails the watchlist; empty means it matches.
@@ -15,7 +15,8 @@ public static class WatchlistMatcher
     /// When given, listings whose auction day has already started are rejected. An alert nobody can act on is noise:
     /// bids go through an exporter and must be in before the day begins.
     /// </param>
-    public static IReadOnlyList<string> Mismatches(Watchlist watchlist, Listing listing, DateTimeOffset? now = null)
+    /// <param name="landed">The listing's landed estimate for the watchlist's destination; needed when it has a landed budget.</param>
+    public static IReadOnlyList<string> Mismatches(Watchlist watchlist, Listing listing, DateTimeOffset? now = null, LandedEstimate? landed = null)
     {
         ArgumentNullException.ThrowIfNull(watchlist);
         ArgumentNullException.ThrowIfNull(listing);
@@ -45,6 +46,13 @@ public static class WatchlistMatcher
             if (listing.Price is not { } price) reasons.Add("no price");
             else if (price.Currency != max.Currency) reasons.Add($"price in {price.Currency}, limit in {max.Currency}");
             else if (price.Amount > max.Amount) reasons.Add($"price {price} > {max}");
+        }
+
+        if (watchlist.MaxLanded is { } budget)
+        {
+            if (landed is null) reasons.Add("no landed estimate");
+            else if (landed.Total.Currency != budget.Currency) reasons.Add($"landed in {landed.Total.Currency}, budget in {budget.Currency}");
+            else if (landed.Total.Amount > budget.Amount) reasons.Add($"landed {landed.Total} > {budget}");
         }
 
         // AuctionEndsAt is the end of the auction day, so the day itself began 24 hours earlier.

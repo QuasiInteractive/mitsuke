@@ -1,0 +1,268 @@
+{
+  "code": "NZ",
+  "name": "New Zealand",
+  "currency": "NZD",
+  "locale": "en-NZ",
+  "rules_checked_on": "2026-09-30",
+  "fx": {
+    "jpy_per_unit": 89,
+    "source_url": "https://www.frankfurter.dev/",
+    "checked_on": "2026-09-29",
+    "note": "Fallback only. The site uses the live European Central Bank reference rate (via Frankfurter), refreshed every 6 hours; this value is used if that service is unreachable. Set from the ECB rate on 2026-09-29."
+  },
+  "inputs": {
+    "ask_fuel_efficient": false,
+    "ask_engine_cc": false
+  },
+  "cost_lines": [
+    {
+      "type": "price",
+      "id": "vehicle",
+      "label": "Vehicle price",
+      "help": "Hammer or FOB price converted from JPY. Customs counts exporter service and documentation fees as part of the price, so include them if you know them."
+    },
+    {
+      "type": "range",
+      "id": "shipping",
+      "label": "Shipping to New Zealand (RoRo)",
+      "help": "Roll-on roll-off from Japan to Auckland, Wellington, Lyttelton or Nelson. Containers are roughly NZ$3,000 to NZ$4,500.",
+      "low": 1500,
+      "high": 3500,
+      "source_url": "https://www.jdmbuysell.com/learn/topics/importing-to-new-zealand/",
+      "checked_on": "2026-09-30",
+      "note": "No official figure. Industry ranges published in 2026 (jdmbuysell, tokyocarz, jpsheet). Excludes Japan-side inland transport and export documents."
+    },
+    {
+      "type": "percent",
+      "id": "insurance",
+      "label": "Marine insurance",
+      "help": "Optional. If paid, it is added to the value GST is charged on.",
+      "rate": 1.5,
+      "basis": [
+        "vehicle"
+      ],
+      "source_url": "https://jpsheet.com/import-guide/new-zealand/",
+      "checked_on": "2026-09-30",
+      "note": "Not an official rate. Exporters quote 1% to 2% of value."
+    },
+    {
+      "type": "range",
+      "id": "offshore_inspection",
+      "label": "Pre-export cleaning and border inspection in Japan",
+      "help": "Used cars from Japan must be cleaned and inspected under an MPI-approved system (JEVIC, ATL, Bordercheck, KMA) before shipping. Paid in Japan.",
+      "low": 300,
+      "high": 600,
+      "source_url": "https://www.jdmbuysell.com/learn/topics/importing-to-new-zealand/",
+      "checked_on": "2026-09-30",
+      "note": "Industry estimate; mandatory, not optional."
+    },
+    {
+      "type": "percent",
+      "id": "duty",
+      "label": "Customs duty",
+      "help": "Passenger cars are duty free in New Zealand whatever their origin. No origin certificate needed.",
+      "rate": 0,
+      "basis": [
+        "vehicle"
+      ],
+      "source_url": "https://www.customs.govt.nz/media/zmdfcmqs/section-xvii.pdf",
+      "checked_on": "2026-09-30",
+      "note": "Working Tariff Document Section XVII: all 87.03 'Other' passenger-car lines are Free. Only motorhomes and ambulances carry 10%."
+    },
+    {
+      "type": "percent",
+      "id": "gst",
+      "label": "GST",
+      "help": "15% of the vehicle value plus freight and insurance (duty is zero). Paid at import clearance before release.",
+      "rate": 15,
+      "basis": [
+        "vehicle",
+        "shipping",
+        "insurance",
+        "duty"
+      ],
+      "source_url": "https://www.customs.govt.nz/travel-to-and-from-new-zealand/move-to-new-zealand-permanently/vehicles-vessels-and-aircraft",
+      "checked_on": "2026-09-30",
+      "note": "Customs may substitute an NZ-market valuation if the declared price looks unrealistically low. No depreciation allowance for a car bought remotely from NZ."
+    },
+    {
+      "type": "fixed",
+      "id": "levies",
+      "label": "Customs and MPI import levies",
+      "help": "Customs goods management levy plus MPI biosecurity levy on a sea import entry, including GST.",
+      "amount": 136.21,
+      "source_url": "https://www.customs.govt.nz/customs-information-and-legislation/goods-clearance-fees",
+      "checked_on": "2026-09-30",
+      "note": "From 1 April 2026: $73.87 + $44.57 = $118.44 excl GST ($136.21 incl GST)."
+    },
+    {
+      "type": "range",
+      "id": "port_broker",
+      "label": "Customs broker and port handling",
+      "help": "A broker lodges the import entry; the port charges wharf handling and documentation.",
+      "low": 400,
+      "high": 1100,
+      "source_url": "https://www.jdmbuysell.com/learn/topics/importing-to-new-zealand/",
+      "checked_on": "2026-09-30",
+      "note": "Industry estimate: broker NZ$300 to NZ$700, port and documents NZ$100 to NZ$800."
+    },
+    {
+      "type": "range",
+      "id": "mpi",
+      "label": "MPI biosecurity inspection on arrival",
+      "help": "NZ$99.60 per RoRo vehicle inspected at the port. A dirty car means re-inspection at NZ$178.83 an hour plus cleaning or heat treatment.",
+      "low": 99.6,
+      "high": 400,
+      "source_url": "https://www.mpi.govt.nz/import/vehicles-machinery-parts/fees-and-charges-for-importing-vehicles-machinery-or-equipment",
+      "checked_on": "2026-09-30",
+      "note": "Low end is the official per-vehicle fee ($86.61 excl GST). High end includes typical cleaning or BMSB-season heat treatment."
+    },
+    {
+      "type": "range",
+      "id": "entry_certification",
+      "label": "Entry certification, transport and repairs",
+      "help": "An entry certifier checks frontal impact, emissions and ESC evidence and the car's condition. Private importers must trailer the car from the port. Repairs (tyres, brakes, glass, rust) are common.",
+      "low": 600,
+      "high": 2000,
+      "source_url": "https://www.nzta.govt.nz/vehicles/importing-a-vehicle/2-complying-with-vehicle-standards-and-providing-evidence/used-vehicles-from-japan",
+      "checked_on": "2026-09-30",
+      "note": "No official price and certifier price pages could not be read. Unverified industry estimate; confirm with VTNZ, VINZ or AA before launch."
+    },
+    {
+      "type": "range",
+      "id": "clean_car",
+      "label": "Clean Car Standard charge",
+      "help": "Every import needs a CO2 account, even a single private car. Pay-as-you-go used imports pay NZ$6 per g/km over a weight-adjusted 108 g/km target. Hybrids and EVs earn credits instead. Special interest vehicles are excluded.",
+      "low": 0,
+      "high": 1500,
+      "source_url": "https://www.nzta.govt.nz/vehicles/clean-car-programme/clean-car-standard/information-for-importers-how-the-ccs-works/data-values-and-formulas",
+      "checked_on": "2026-09-30",
+      "note": "Depends on the car's CO2 figure: use the NZTA Clean Car Standard calculator for the exact charge. Rates set for 2026 and 2027; new used-import settings from 1 Jan 2028."
+    },
+    {
+      "type": "range",
+      "id": "registration",
+      "label": "First registration and licensing",
+      "help": "One-off registration with plates and 12 months licence, plus tyre, refrigerant, VIN and Clean Car admin fees. Diesel cars cost more and also pay road user charges.",
+      "low": 434,
+      "high": 586,
+      "source_url": "https://www.nzta.govt.nz/vehicles/licensing-rego/vehicle-fees/registration-fees",
+      "checked_on": "2026-09-30",
+      "note": "Official NZTA fees for a private petrol car from 1 July 2026: $311.22 (up to 1300cc) to $463.74 (4001cc+), plus $122.56 of first-registration extras."
+    }
+  ],
+  "totals_note": "Excludes exporter commission, Japanese inland transport and any repairs beyond typical entry-certification fixes. GST and levies follow official rates; other lines are typical market ranges.",
+  "eligibility": {
+    "intro": "New Zealand has no 25-year rule. A used Japanese car can be imported at any age, but to be registered it must pass entry certification against frontal impact, exhaust emissions and electronic stability control (ESC) standards. Cars 20 or more years old are exempt from those three standards but still need full entry certification.",
+    "pathways": [
+      {
+        "id": "twenty_year_exemption",
+        "name": "20+ year exemption",
+        "summary": "A car manufactured or first registered overseas 20 or more years before its first NZ entry certification skips the frontal impact, emissions and ESC standards. No permit or quota. It still needs entry certification, GST, MPI clearance and a Clean Car account.",
+        "criteria": {
+          "type": "min_age_years",
+          "years": 20,
+          "measured_from": "first_registration"
+        },
+        "result_if_met": "yes",
+        "typical_cost_line": "entry_certification",
+        "source_url": "https://www.nzta.govt.nz/vehicles/vehicle-types/vehicle-classes-and-standards/exceptions-to-the-standards",
+        "checked_on": "2026-09-30",
+        "note": "Age is measured at the date of first entry certification in NZ (VIRM Entry certification 8-1). Rust and structural corrosion must still be repaired to pass."
+      },
+      {
+        "id": "standard_used_import",
+        "name": "Standard used import (entry certification)",
+        "summary": "Cars under 20 years old must prove frontal impact, emissions and ESC compliance with the original Japanese export certificate.",
+        "criteria": {
+          "type": "standards",
+          "standards": [
+            "Frontal impact: Japanese-market car built on or after 1 January 1996 (kei cars from 1 July 2000), shown by a 5-digit type designation number on the export certificate",
+            "Emissions: the export certificate's emissions code must be an accepted Japan 2005 Low Harm, Japan 09 or Japan 2018 code (petrol D only if first registered from 2012, or E, G, H, L, M, R, Q, 3 to 7). From 1 July 2028 only Japan 2018 codes pass",
+            "ESC fitted: required on every used passenger car border-inspected since 1 March 2020"
+          ]
+        },
+        "result_if_met": "maybe",
+        "typical_cost_line": "entry_certification",
+        "source_url": "https://www.nzta.govt.nz/vehicles/importing-a-vehicle/2-complying-with-vehicle-standards-and-providing-evidence/used-vehicles-from-japan",
+        "checked_on": "2026-09-30",
+        "note": "Emissions codes per VIRM TB28 (updated 10 April 2025). Most performance JDM cars from the late 1990s and early 2000s lack ESC and an accepted emissions code, so they need the 20-year exemption or a special interest permit."
+      },
+      {
+        "id": "special_interest_vehicle",
+        "name": "Special interest vehicle permit",
+        "summary": "Up to 200 permits a year let an enthusiast register a car under 20 years old that fails frontal impact, emissions or ESC. The quota usually runs out mid-year.",
+        "criteria": {
+          "type": "manual",
+          "instructions": "For cars under 20 years old that fail the standards. NZTA must deem it of historic value, or it must meet 3 of 4: named as a collector's item in a listed magazine, under 20,000 built a year, a 2-door coupe or convertible, built as a high-performance car. You must own another everyday car, keep this one 4 years, and not have had a permit in the last 2 years. Get the permit before you buy."
+        },
+        "result_if_met": "maybe",
+        "source_url": "https://www.nzta.govt.nz/vehicles/importing-a-vehicle/2-complying-with-vehicle-standards-and-providing-evidence/special-interest-vehicles",
+        "checked_on": "2026-09-30",
+        "note": "Apply via an entry certifier on form SIVVP; NZTA fee about $23.20. Permit lapses if the car is not inspected within 6 months. Special interest vehicles are excluded from the Clean Car Standard."
+      },
+      {
+        "id": "immigrant_vehicle",
+        "name": "Immigrant's or returning New Zealander's vehicle",
+        "summary": "For people moving to New Zealand with a car they already owned and used overseas. Not available for a car bought at auction from New Zealand.",
+        "criteria": {
+          "type": "manual",
+          "instructions": "Only applies if you lived outside NZ for at least 21 months and personally owned and used this car overseas for at least 12 months before arriving. Otherwise ignore this pathway."
+        },
+        "result_if_met": "maybe",
+        "source_url": "https://www.nzta.govt.nz/vehicles/importing-a-vehicle/2-complying-with-vehicle-standards-and-providing-evidence/immigrants-vehicles",
+        "checked_on": "2026-09-30",
+        "note": "NZTA application fee $184.00 incl GST. A separate Customs concession can remove GST. Immigrants' vehicles are still subject to the Clean Car Standard."
+      }
+    ],
+    "hard_blocks": [
+      {
+        "id": "odometer",
+        "summary": "A car whose odometer does not correctly record distance, or has none, is prohibited from import.",
+        "source_url": "https://www.nzta.govt.nz/vehicles/importing-a-vehicle/2-complying-with-vehicle-standards-and-providing-evidence/used-vehicles-from-japan",
+        "checked_on": "2026-09-30",
+        "note": "Customs Import Prohibition Order. A replaced-meter mark on the auction sheet needs explaining before you buy."
+      },
+      {
+        "id": "frontal_pre96",
+        "summary": "A Japanese-market car built before 1996 and under 20 years old cannot meet the frontal impact standard; in practice this only matters for rare late-registered cars.",
+        "source_url": "https://www.nzta.govt.nz/vehicles/importing-a-vehicle/2-complying-with-vehicle-standards-and-providing-evidence/used-vehicles-from-japan",
+        "checked_on": "2026-09-30",
+        "note": ""
+      },
+      {
+        "id": "lhd",
+        "summary": "Left-hand-drive cars under 20 years old need a separate LHD permit or a right-hand-drive conversion. Most JDM cars are right-hand drive already.",
+        "source_url": "https://www.nzta.govt.nz/vehicles/vehicle-types/vehicle-classes-and-standards/exceptions-to-the-standards",
+        "checked_on": "2026-09-30",
+        "note": ""
+      }
+    ],
+    "links": [
+      {
+        "label": "NZTA: used vehicles from Japan",
+        "url": "https://www.nzta.govt.nz/vehicles/importing-a-vehicle/2-complying-with-vehicle-standards-and-providing-evidence/used-vehicles-from-japan"
+      },
+      {
+        "label": "NZTA: special interest vehicles",
+        "url": "https://www.nzta.govt.nz/vehicles/importing-a-vehicle/2-complying-with-vehicle-standards-and-providing-evidence/special-interest-vehicles"
+      },
+      {
+        "label": "NZTA: Clean Car Standard for importers",
+        "url": "https://www.nzta.govt.nz/vehicles/clean-car-programme/clean-car-standard/information-for-importers-how-the-ccs-works/data-values-and-formulas"
+      },
+      {
+        "label": "MPI: vehicle import fees",
+        "url": "https://www.mpi.govt.nz/import/vehicles-machinery-parts/fees-and-charges-for-importing-vehicles-machinery-or-equipment"
+      }
+    ]
+  },
+  "gotchas": [
+    "Customs duty on passenger cars is 0%. Exporter blogs that quote 5% or 10% are describing parts or motorhomes.",
+    "Open a Clean Car Standard CO2 account before certification, even for one private car. A thirsty petrol car can attract a four-figure charge.",
+    "Emissions acceptance tightens on 1 July 2028 to Japan 2018 codes only. Ship early if the car is borderline.",
+    "Special interest permits are capped at 200 a year and run out mid-year. Get one before you buy.",
+    "Private importers cannot drive an uncertified car; budget to trailer it from the port to the certifier.",
+    "Registration fees changed on 1 July 2026 and Clean Car rates change on 1 January 2028. Re-check before quoting."
+  ]
+}

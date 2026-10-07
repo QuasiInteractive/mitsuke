@@ -16,8 +16,11 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 | Postgres: listings, vehicles (relist linking), price history, watchlists, alert log | ✅ Migrations + integration tests |
 | Alert-once guarantee (safe to poll 24/7, failed sends retried) | ✅ |
 | CI: build + all tests incl. Postgres on every push (GitHub Actions) | ✅ |
-| Queue-based pipeline on Azure Functions | Next |
-| Landed cost (AUD/NZD), deal score, Kensa-ya sheet decoding | Planned |
+| Lot details for matches: auction sheet, earlier auction appearances, full gallery | ✅ |
+| Landed cost AU/NZ/US with live exchange rates, "under A$45K landed" watchlists | ✅ Identical to Kensa-ya, proven by 160 golden cases |
+| Deal score | Next |
+| Queue-based pipeline on Azure Functions | Planned |
+| Kensa-ya sheet decoding, web app, notifications | Planned |
 | Bicep IaC, CD, Key Vault, Application Insights | Planned |
 
 ## Architecture
@@ -36,6 +39,7 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 - **Polite by construction.** A hard page cap per search means a bad filter can never become a bulk crawl, and a sliding-window limiter caps requests per minute even though the key has no server quota.
 - **Idempotent by design.** Re-running a scan never double-alerts: each (watchlist, listing, channel) alert is claimed in Postgres before sending (`INSERT ... ON CONFLICT`), marked sent or failed afterwards, and only failed ones are retried.
 - **Our own price history.** TheCarApi has no Japanese sale prices, so every price *change* is logged per listing, and relisted cars are linked to one `vehicle` by frame number.
+- **One engine, two products.** Landed cost is Kensa-ya's engine, vendored unchanged by [`scripts/sync-kensaya-engine.sh`](scripts/sync-kensaya-engine.sh) together with Kensa-ya's golden answers; [`LandedCostParityTests`](tests/Mitsuke.Tests/LandedCostParityTests.cs) fails the build if Mitsuke would quote a different number, to the cent.
 - **Honest data.** Japanese auction prices are opening bids, never sale prices, and `PriceKind` carries that through to the alert text. Unknown values fail filters that need them, so Mitsuke never alerts on a guess. Every alert names its source and carries a disclaimer.
 
 Why things are the way they are: [docs/thecarapi-findings.md](docs/thecarapi-findings.md) covers what the data actually contains, verified against the live API before the schema was designed.
@@ -46,6 +50,7 @@ Why things are the way they are: [docs/thecarapi-findings.md](docs/thecarapi-fin
 |---|---|
 | `src/Mitsuke.Core` | Domain + the pipeline (`Scanner`): `Listing`, `Watchlist`, `WatchlistMatcher`, `AlertFormatter`, source/storage/notifier interfaces. No infrastructure dependencies. |
 | `src/Mitsuke.Sources.TheCarApi` | TheCarApi adapter: typed `HttpClient`, resilience pipeline, JSON → `Listing` mapping. |
+| `src/Mitsuke.Pricing` | Landed-cost estimates: Kensa-ya's engine and country rules (in `Kensaya/` and `data/`, synced, not edited) behind Mitsuke's `ILandedCostEstimator`, with live ECB exchange rates. |
 | `src/Mitsuke.Data` | Postgres via Npgsql + Dapper. Forward-only SQL migrations in [`Migrations/`](src/Mitsuke.Data/Migrations), applied under an advisory lock. |
 | `src/Mitsuke.Cli` | Local runner: `migrate`, `seed`, `scan`. |
 | `tests/Mitsuke.Tests` | xUnit unit tests, plus integration tests against a real Postgres via Testcontainers. Hand-written fixtures (no copied API data; the provider's terms forbid redistributing raw feeds). |

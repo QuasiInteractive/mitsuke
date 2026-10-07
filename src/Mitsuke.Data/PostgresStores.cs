@@ -113,7 +113,8 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
             select id as Id, name as Name, make as Make, model as Model, model_codes as ModelCodes,
                    year_from as YearFrom, year_to as YearTo, max_mileage_km as MaxMileageKm, min_grade as MinGrade,
                    include_repaired as IncludeRepaired, include_modified as IncludeModified,
-                   max_price_amount as MaxPriceAmount, max_price_currency as MaxPriceCurrency
+                   max_price_amount as MaxPriceAmount, max_price_currency as MaxPriceCurrency,
+                   destination as Destination, max_landed_amount as MaxLandedAmount, max_landed_currency as MaxLandedCurrency
             from watchlists
             where is_active
             order by created_at
@@ -133,6 +134,8 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
             IncludeRepaired = r.IncludeRepaired,
             IncludeModified = r.IncludeModified,
             MaxPrice = r.MaxPriceAmount is { } amount && r.MaxPriceCurrency is { } currency ? new Money(amount, currency) : null,
+            Destination = r.Destination,
+            MaxLanded = r.MaxLandedAmount is { } landed && r.MaxLandedCurrency is { } landedCurrency ? new Money(landed, landedCurrency) : null,
         }).ToList();
     }
 
@@ -142,9 +145,11 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
         await conn.ExecuteAsync("""
             insert into watchlists (id, name, make, model, model_codes, year_from, year_to, max_mileage_km, min_grade,
-                                    include_repaired, include_modified, max_price_amount, max_price_currency)
+                                    include_repaired, include_modified, max_price_amount, max_price_currency,
+                                    destination, max_landed_amount, max_landed_currency)
             values (@Id, @Name, @Make, @Model, @ModelCodes, @YearFrom, @YearTo, @MaxMileageKm, @MinGrade,
-                    @IncludeRepaired, @IncludeModified, @MaxPriceAmount, @MaxPriceCurrency)
+                    @IncludeRepaired, @IncludeModified, @MaxPriceAmount, @MaxPriceCurrency,
+                    @Destination, @MaxLandedAmount, @MaxLandedCurrency)
             """, new
         {
             watchlist.Id,
@@ -160,6 +165,9 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
             watchlist.IncludeModified,
             MaxPriceAmount = watchlist.MaxPrice?.Amount,
             MaxPriceCurrency = watchlist.MaxPrice?.Currency,
+            watchlist.Destination,
+            MaxLandedAmount = watchlist.MaxLanded?.Amount,
+            MaxLandedCurrency = watchlist.MaxLanded?.Currency,
         });
     }
 
@@ -178,6 +186,9 @@ public sealed class PostgresWatchlistStore(NpgsqlDataSource db) : IWatchlistStor
         public bool IncludeModified { get; init; }
         public decimal? MaxPriceAmount { get; init; }
         public string? MaxPriceCurrency { get; init; }
+        public string Destination { get; init; } = "AU";
+        public decimal? MaxLandedAmount { get; init; }
+        public string? MaxLandedCurrency { get; init; }
     }
 }
 

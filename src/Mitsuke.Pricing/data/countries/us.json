@@ -1,0 +1,177 @@
+{
+  "code": "US",
+  "name": "United States",
+  "currency": "USD",
+  "locale": "en-US",
+  "rules_checked_on": "2026-10-05",
+  "fx": {
+    "jpy_per_unit": 157.67,
+    "source_url": "https://www.frankfurter.dev/",
+    "checked_on": "2026-10-05",
+    "note": "Fallback only. The site uses the live European Central Bank reference rate (via Frankfurter), refreshed every 6 hours; this value is used if that service is unreachable."
+  },
+  "inputs": {
+    "ask_fuel_efficient": false,
+    "ask_engine_cc": false,
+    "ask_truck": true
+  },
+  "cost_lines": [
+    {
+      "type": "price",
+      "id": "vehicle",
+      "label": "Vehicle price",
+      "help": "Hammer or FOB price converted from JPY. Duty is based on the price paid for the car. Exporter fees and Japanese inland transport are extra (roughly ¥50,000 to ¥150,000)."
+    },
+    {
+      "type": "range",
+      "id": "shipping",
+      "label": "Shipping to the US (RoRo)",
+      "help": "Roll-on roll-off to a West Coast port (Los Angeles, Oakland, Tacoma). East Coast ports (New York, New Jersey, Baltimore) cost more, roughly $2,000 to $4,200, and take about 45 days via the Panama Canal.",
+      "low": 1200,
+      "high": 3000,
+      "source_url": "https://www.wcshipping.com/blog/cost-ship-car-from-japan-to-usa-guide",
+      "checked_on": "2026-10-05",
+      "note": "Estimate from a US shipping company's published ranges (W.C. Shipping, March 2025; New York about $3,050 in their September 2026 guide). Not an official figure. Get a quote."
+    },
+    {
+      "type": "percent",
+      "id": "duty",
+      "label": "Customs duty",
+      "help": "Japanese passenger cars 25+ years old: 2.5% normal duty plus the Section 301 tariff on Japanese goods (in force since 24 July 2026), 12.5% in total. Pickups and kei trucks: 25% (the long-standing truck rate; Section 301 adds nothing on top). Tariffs are changing fast and the 301 tariff is being challenged in court, so confirm with a licensed customs broker before you buy.",
+      "rate": 12.5,
+      "rate_alt": 25,
+      "rate_alt_label": "Truck or pickup",
+      "basis": ["vehicle"],
+      "source_url": "https://content.govdelivery.com/accounts/USDHSCBP/bulletins/421d887",
+      "checked_on": "2026-10-05",
+      "note": "CBP CSMS #69326983: products of Japan with a column 1 rate under 12.5% 'will be assessed a combined column one and Section 301 duty rate of 12.5%', effective 24 July 2026 (FR 2026-15181). MFN: 2.5% for heading 8703, 25% for 8704 (HTSUS Rev. 20, 2026). The Section 232 auto tariff does not apply to vehicles made in a year at least 25 years before entry (heading 9903.94.04). Whether those vehicles are also outside the Section 301 tariff is unclear: the notice exempts goods 'subject to tariffs under Section 232', and HTSUS note 52(f) does not list 9903.94.04 among the exempt headings, so 12.5% is used as the conservative estimate. If CBP treats them as exempt, passenger-car duty is 2.5%. Under the CIT challenge argued on 30 Sept 2026."
+    },
+    {
+      "type": "percent",
+      "id": "mpf",
+      "label": "Merchandise processing fee",
+      "help": "Charged by US Customs on every formal entry (any car worth over $2,500): 0.3464% of value, minimum $34.58, maximum $670.86 from 1 October 2026.",
+      "rate": 0.3464,
+      "min": 34.58,
+      "max": 670.86,
+      "basis": ["vehicle"],
+      "source_url": "https://www.federalregister.gov/documents/2026/07/31/2026-15530/customs-user-fees-to-be-adjusted-for-inflation-in-fiscal-year-2027",
+      "checked_on": "2026-10-05",
+      "note": "FR 2026-15530: fiscal year 2027 figures, required from 1 Oct 2026; the 0.3464% rate is unchanged. Formal entry applies above $2,500 (19 CFR 143.21)."
+    },
+    {
+      "type": "percent",
+      "id": "hmf",
+      "label": "Harbor maintenance fee",
+      "help": "0.125% of the car's value for anything arriving by ship at a listed US port.",
+      "rate": 0.125,
+      "basis": ["vehicle"],
+      "source_url": "https://www.ecfr.gov/current/title-19/chapter-I/part-24/section-24.24",
+      "checked_on": "2026-10-05",
+      "note": "19 CFR 24.24: 'a port use fee of 0.125 percent (.00125) of its value'."
+    },
+    {
+      "type": "range",
+      "id": "broker",
+      "label": "Customs broker, entry bond and ISF filing",
+      "help": "A customs bond is required to release the car, and an Importer Security Filing must reach CBP at least 24 hours before a RoRo ship arrives (a late filing can cost $5,000). Most people pay a licensed broker to handle all three.",
+      "low": 575,
+      "high": 1400,
+      "source_url": "https://www.wcshipping.com/blog/how-much-does-it-cost-to-import-a-car-from-japan-to-the-us-in-2026",
+      "checked_on": "2026-10-05",
+      "note": "Estimate: broker $400-$800 and single-entry bond $150-$500 (W.C. Shipping, Sep 2026), ISF filing about $25-$100 (secondary sources). Bond required by 19 CFR 142.4; ISF for RoRo per CBP ISF FAQ 2.0 (2023) and 19 CFR 149."
+    },
+    {
+      "type": "range",
+      "id": "port",
+      "label": "Port and terminal handling",
+      "help": "Destination port, terminal and wharfage charges. If Customs picks the car for an exam, add roughly $1,000 to $2,000.",
+      "low": 500,
+      "high": 800,
+      "source_url": "https://www.wcshipping.com/blog/cost-ship-car-from-japan-to-usa-guide",
+      "checked_on": "2026-10-05",
+      "note": "Estimate from a US shipping company (March 2025). Exam costs are from secondary sources only."
+    }
+  ],
+  "totals_note": "Excludes exporter commission and Japanese inland transport, state sales or use tax (0% to about 10% depending on the state), title and registration, insurance, and any Gas Guzzler Tax (see below). Every line is an estimate; tariffs in particular are changing fast.",
+  "eligibility": {
+    "intro": "A car from Japan has to clear two federal rule books: NHTSA safety standards and EPA emissions rules. Once a car is at least 25 years old it is exempt from the safety standards, and from 21 years old the emissions rules can be met by keeping it in original configuration. Newer Japan-only models are very hard to import legally.",
+    "pathways": [
+      {
+        "id": "us_25_year",
+        "name": "25-year exemption (NHTSA)",
+        "summary": "A vehicle at least 25 years old is exempt from US safety standards. NHTSA measures this to the month, from the date of manufacture, and it is declared in Box 1 of form HS-7. EPA form 3520-1 code E (21+ years, original unmodified configuration) covers emissions.",
+        "criteria": { "type": "min_age_years", "years": 25, "measured_from": "manufacture" },
+        "result_if_met": "yes",
+        "source_url": "https://www.ecfr.gov/current/title-49/subtitle-B/chapter-V/part-591",
+        "checked_on": "2026-10-05",
+        "note": "49 U.S.C. 30112(b)(9) and 49 CFR 591.5(i)(1). NHTSA FAQ: 'the 25 year period runs from the date of the vehicle's manufacture'; the NHTSA message set requires month and year for Box 1. NHTSA's site blocks automated checks: re-read https://www.nhtsa.gov/importing-vehicle/importation-and-certification-faqs by hand before relying on it."
+      },
+      {
+        "id": "us_show_display",
+        "name": "Show or Display",
+        "summary": "For a short list of cars of unusual historical or technological significance, NHTSA can allow import before 25 years, limited to 2,500 miles a year.",
+        "criteria": {
+          "type": "manual",
+          "instructions": "Only applies if this exact model is on NHTSA's approved Show or Display list. Most cars are not: a model generally can't qualify if more than 500 were built or a US version was sold. Check the list before bidding."
+        },
+        "result_if_met": "maybe",
+        "source_url": "https://www.nhtsa.gov/document/vehicles-determined-eligible-importation-show-or-display",
+        "checked_on": "2026-10-05",
+        "note": "49 CFR 591.5(j); requires written NHTSA permission."
+      },
+      {
+        "id": "us_registered_importer",
+        "name": "Registered Importer conversion",
+        "summary": "A Registered Importer can bring a car under 25 years up to US standards, but only for models NHTSA has already declared eligible.",
+        "criteria": {
+          "type": "manual",
+          "instructions": "Only for models on NHTSA's import eligibility list, which needs a substantially similar US-certified version. Japan-only right-hand-drive models generally can't use this route, and it needs a DOT bond of 1.5 times the car's value."
+        },
+        "result_if_met": "maybe",
+        "source_url": "https://www.cbp.gov/trade/basic-import-export/importing-car",
+        "checked_on": "2026-10-05",
+        "note": "NHTSA FAQ on substantially similar vehicles and right-hand drive; DOT bond per 49 CFR 591.5(f). 'JDM-only models can't realistically use it' is an inference from the criteria, not an NHTSA statement."
+      }
+    ],
+    "hard_blocks": [
+      {
+        "id": "non_compliant",
+        "summary": "A car that doesn't meet US standards and isn't exempt must be brought into compliance, exported or destroyed. Don't ship a car under 25 years old without an approved route.",
+        "source_url": "https://www.cbp.gov/trade/basic-import-export/importing-car",
+        "checked_on": "2026-10-05",
+        "note": ""
+      },
+      {
+        "id": "isf",
+        "summary": "An Importer Security Filing is required for RoRo cars at least 24 hours before arrival. Late filing can mean $5,000 in liquidated damages.",
+        "source_url": "https://www.cbp.gov/sites/default/files/assets/documents/2023-May/ISF%20FAQ%202.0%20(508).pdf",
+        "checked_on": "2026-10-05",
+        "note": "CBP ISF FAQ 2.0 (May 2023); 19 CFR 149."
+      }
+    ],
+    "modification_caveat": {
+      "summary": "EPA's age exemption (code E) needs the car in its original, unmodified configuration. An engine swap disqualifies it unless the replacement is the same model of engine, and emissions-related changes may need undoing before import.",
+      "trigger_keywords": ["engine", "swap", "turbo", "supercharg", "intercooler", "ecu", "catalytic", "decat", "exhaust manifold", "header"],
+      "affects_pathways": ["us_25_year"],
+      "headline_condition": "if it's still in original configuration for EPA",
+      "source_url": "https://www.epa.gov/system/files/documents/2024-08/form3520-1-2024-08-secured-enabled.pdf",
+      "checked_on": "2026-10-05",
+      "note": "EPA form 3520-1 code E: 'vehicle at least 21 years old … and in original unmodified configuration'."
+    },
+    "links": [
+      { "label": "NHTSA: importing a vehicle", "url": "https://www.nhtsa.gov/importing-vehicle" },
+      { "label": "NHTSA: Show or Display list", "url": "https://www.nhtsa.gov/document/vehicles-determined-eligible-importation-show-or-display" },
+      { "label": "CBP: importing a motor vehicle", "url": "https://www.cbp.gov/trade/basic-import-export/importing-car" },
+      { "label": "EPA: importing vehicles and engines", "url": "https://www.epa.gov/importing-vehicles-and-engines" }
+    ]
+  },
+  "gotchas": [
+    "Tariffs on Japanese goods changed several times in 2025 and 2026. The 12.5% duty used here comes from the Section 301 tariff in force since 24 July 2026 and is being challenged in court. Confirm the rate with a licensed customs broker before you buy.",
+    "NHTSA's 25 years run to the month from the date of manufacture, so check the build plate, not the first-registration date on the sheet.",
+    "The IRS says imported cars are subject to the Gas Guzzler Tax (from $1,000 to $7,700 for 1980 and later models). How it applies to an unmodified 25-year-old import isn't clear, so it isn't included here; ask your broker.",
+    "Kei trucks and kei cars: some states won't register them for road use (Maine lists mini trucks as off-road only), while others such as Texas now allow them. Check your state's DMV before buying.",
+    "States set their own sales tax, titling and sometimes emissions rules (California especially). Budget for your state's charges on top of these numbers.",
+    "Keep the car stock until it's through EPA: engine swaps and emissions modifications can stop it qualifying for the age exemption."
+  ]
+}

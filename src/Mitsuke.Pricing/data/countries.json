@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "description": "Index of supported destination countries. To add a country: add an entry here and a rules file at src/data/countries/<rules_file>.json. No code changes needed.",
+    "last_reviewed": "2026-09-30"
+  },
+  "countries": [
+    { "code": "AU", "name": "Australia", "currency": "AUD", "support": "full", "rules_file": "au", "flag": "🇦🇺" },
+    { "code": "NZ", "name": "New Zealand", "currency": "NZD", "support": "full", "rules_file": "nz", "flag": "🇳🇿" },
+    { "code": "US", "name": "United States", "currency": "USD", "support": "full", "rules_file": "us", "flag": "🇺🇸" },
+    { "code": "CA", "name": "Canada", "currency": "CAD", "support": "translation_only", "flag": "🇨🇦", "coming_soon": true },
+    { "code": "DE", "name": "Germany", "currency": "EUR", "support": "translation_only", "flag": "🇩🇪", "coming_soon": true },
+    { "code": "GB", "name": "United Kingdom", "currency": "GBP", "support": "translation_only", "flag": "🇬🇧" },
+    { "code": "XX", "name": "Other country", "currency": "USD", "support": "translation_only", "flag": "🌏" }
+  ]
+}

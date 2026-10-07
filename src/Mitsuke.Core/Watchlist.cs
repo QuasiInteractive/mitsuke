@@ -18,8 +18,14 @@ public sealed record Watchlist
     public bool IncludeRepaired { get; init; }
     public bool IncludeModified { get; init; } = true;
 
-    /// <summary>Price ceiling in the listing's own currency. Landed-cost (AUD/NZD) limits come with the cost engine.</summary>
+    /// <summary>Price ceiling in the listing's own currency (an opening-bid limit). Most people want <see cref="MaxLanded"/>.</summary>
     public Money? MaxPrice { get; init; }
+
+    /// <summary>Where the car is going, ISO country code ("AU", "NZ"). Decides the landed-cost rules and currency.</summary>
+    public string Destination { get; init; } = "AU";
+
+    /// <summary>Budget on the ground in the buyer's currency, compared against the estimate's midpoint.</summary>
+    public Money? MaxLanded { get; init; }
 
     public SourceQuery ToSourceQuery() => new(Make, Model, YearFrom, YearTo);
 }

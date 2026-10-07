@@ -1,0 +1,6 @@
+# Kensaya/ is vendored from Kensa-ya unchanged (scripts/sync-kensaya-engine.sh) so re-syncs stay a plain copy.
+# It follows Kensa-ya's conventions, so Mitsuke's stricter style analyzers are off for that folder only.
+# Compiler checks (nullability, warnings-as-errors) still apply.
+[Kensaya/*.cs]
+dotnet_analyzer_diagnostic.severity = none
+dotnet_diagnostic.CA1848.severity = none

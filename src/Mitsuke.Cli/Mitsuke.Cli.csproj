@@ -4,6 +4,7 @@
     <ProjectReference Include="..\Mitsuke.Core\Mitsuke.Core.csproj" />
     <ProjectReference Include="..\Mitsuke.Sources.TheCarApi\Mitsuke.Sources.TheCarApi.csproj" />
     <ProjectReference Include="..\Mitsuke.Data\Mitsuke.Data.csproj" />
+    <ProjectReference Include="..\Mitsuke.Pricing\Mitsuke.Pricing.csproj" />
   </ItemGroup>
 
   <ItemGroup>

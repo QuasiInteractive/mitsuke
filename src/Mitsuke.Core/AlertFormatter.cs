@@ -11,7 +11,7 @@ public static class AlertFormatter
     private static readonly TimeSpan Jst = TimeSpan.FromHours(9);
     private static readonly CultureInfo Au = CultureInfo.GetCultureInfo("en-AU");
 
-    public static string Format(Watchlist watchlist, Listing listing, ListingDetails? details = null)
+    public static string Format(Watchlist watchlist, Listing listing, ListingDetails? details = null, LandedEstimate? landed = null)
     {
         ArgumentNullException.ThrowIfNull(watchlist);
         ArgumentNullException.ThrowIfNull(listing);
@@ -29,6 +29,13 @@ public static class AlertFormatter
         sb.Append(CultureInfo.InvariantCulture, $"[{watchlist.Name}] {title}");
         if (facts.Count > 0) sb.Append(". ").Append(string.Join(", ", facts));
         sb.AppendLine(".");
+
+        if (landed is not null)
+        {
+            var (total, low, high) = (landed.Total, landed.Low, landed.High);
+            sb.AppendLine(string.Create(Au,
+                $"Est. landed in {landed.Destination}: {Symbol(total.Currency)}{total.Amount:N0} (range {Symbol(low.Currency)}{low.Amount:N0}–{high.Amount:N0})"));
+        }
 
         if (listing.Price is { } price)
             sb.AppendLine(string.Create(Au, $"{Label(listing.PriceKind)}: {Symbol(price.Currency)}{price.Amount:N0}"));

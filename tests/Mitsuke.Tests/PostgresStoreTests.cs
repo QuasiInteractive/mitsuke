@@ -107,6 +107,8 @@ public sealed class PostgresStoreTests(PostgresFixture pg) : IAsyncLifetime
             MinGrade = 3.5m,
             IncludeModified = false,
             MaxPrice = new Money(4_500_000m, "JPY"),
+            Destination = "NZ",
+            MaxLanded = new Money(60_000m, "NZD"),
         };
         await _watchlists.AddAsync(watchlist);
 

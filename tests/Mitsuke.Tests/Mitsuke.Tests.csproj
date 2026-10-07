@@ -25,6 +25,11 @@
     <ProjectReference Include="..\..\src\Mitsuke.Core\Mitsuke.Core.csproj" />
     <ProjectReference Include="..\..\src\Mitsuke.Sources.TheCarApi\Mitsuke.Sources.TheCarApi.csproj" />
     <ProjectReference Include="..\..\src\Mitsuke.Data\Mitsuke.Data.csproj" />
+    <ProjectReference Include="..\..\src\Mitsuke.Pricing\Mitsuke.Pricing.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="contract/*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
