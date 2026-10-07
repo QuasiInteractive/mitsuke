@@ -1,0 +1,94 @@
+"use client";
+
+import { useState } from "react";
+
+type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent" } | { kind: "error"; message: string };
+
+/**
+ * The sticky action bar. "I want to bid" asks for a max bid and contact details and passes them to a partner
+ * exporter (Mitsuke never bids or takes money). Keep watching / Not for me arrive with accounts.
+ */
+export function BidBar({ lotId, title, openingBidJpy }: { lotId: string; title: string; openingBidJpy: number | null }) {
+  const [open, setOpen] = useState(false);
+  const [status, setStatus] = useState<Status>({ kind: "idle" });
+
+  async function submit(form: FormData) {
+    setStatus({ kind: "sending" });
+    const res = await fetch(`/api/bid/${lotId}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        maxBidJpy: Number(String(form.get("maxBid") ?? "").replace(/[^\d]/g, "")),
+        name: form.get("name"),
+        email: form.get("email"),
+        note: form.get("note") || null,
+      }),
+    });
+    if (res.ok) return setStatus({ kind: "sent" });
+    const body = await res.json().catch(() => null);
+    const first = body?.errors ? Object.values(body.errors as Record<string, string[]>)[0]?.[0] : null;
+    setStatus({ kind: "error", message: first ?? (res.status === 429 ? "Too many requests. Try again in a few minutes." : "That didn't go through. Try again.") });
+  }
+
+  return (
+    <>
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/85 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:px-6">
+          <button onClick={() => setOpen(true)} className="flex-1 rounded-2xl bg-accent px-5 py-3.5 text-base font-semibold shadow-[0_8px_30px_-8px_var(--color-accent)] hover:bg-accent-strong sm:flex-none sm:px-10">
+            I want to bid ›
+          </button>
+          <button disabled title="Coming with accounts" className="rounded-2xl border border-line px-4 py-3.5 text-sm text-muted opacity-60">♡ Keep watching</button>
+          <button disabled title="Coming with accounts" className="hidden rounded-2xl border border-line px-4 py-3.5 text-sm text-muted opacity-60 sm:block">✕ Not for me</button>
+        </div>
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-30 grid place-items-end bg-black/70 backdrop-blur-sm sm:place-items-center" onClick={() => setOpen(false)}>
+          <div className="card w-full max-w-md rounded-b-none p-6 sm:rounded-b-[1.25rem]" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="bid-title">
+            {status.kind === "sent" ? (
+              <div className="py-6 text-center">
+                <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-good/15 text-2xl text-good">✓</div>
+                <h2 id="bid-title" className="text-lg font-semibold">Request sent</h2>
+                <p className="mt-2 text-sm text-muted">We&apos;ll pass it to our partner exporter and email you. Nothing is charged and no bid is placed until they confirm with you.</p>
+                <button onClick={() => setOpen(false)} className="mt-6 rounded-xl border border-line px-5 py-2 text-sm">Close</button>
+              </div>
+            ) : (
+              <form action={submit} className="space-y-4">
+                <div>
+                  <h2 id="bid-title" className="text-lg font-semibold">Bid on this car</h2>
+                  <p className="mt-1 text-sm text-muted">{title}</p>
+                </div>
+                <label className="block text-sm">
+                  <span className="text-muted">Your maximum bid (yen)</span>
+                  <input name="maxBid" inputMode="numeric" required placeholder={openingBidJpy ? Math.round(openingBidJpy).toLocaleString("en-AU") : "3,500,000"} className="tabular mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2.5 text-lg outline-none focus:border-accent" />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block text-sm">
+                    <span className="text-muted">Name</span>
+                    <input name="name" required maxLength={100} autoComplete="name" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2.5 outline-none focus:border-accent" />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="text-muted">Email</span>
+                    <input name="email" type="email" required autoComplete="email" className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2.5 outline-none focus:border-accent" />
+                  </label>
+                </div>
+                <label className="block text-sm">
+                  <span className="text-muted">Anything we should know? (optional)</span>
+                  <textarea name="note" maxLength={1000} rows={2} className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2.5 outline-none focus:border-accent" />
+                </label>
+                <p className="text-xs text-faint">Mitsuke never bids or takes payment. A licensed partner exporter places the bid and handles your deposit directly.</p>
+                {status.kind === "error" && <p className="text-sm text-accent">{status.message}</p>}
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setOpen(false)} className="rounded-xl border border-line px-4 py-3 text-sm">Cancel</button>
+                  <button disabled={status.kind === "sending"} className="flex-1 rounded-xl bg-accent py-3 font-semibold hover:bg-accent-strong disabled:opacity-60">
+                    {status.kind === "sending" ? "Sending…" : "Send bid request"}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

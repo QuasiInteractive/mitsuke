@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* Mitsuke: dark charcoal, one crimson accent (hanko-seal red), calm premium. See docs/design.md. */
+@theme {
+  --color-ink: #0b0b0d;
+  --color-surface: #141418;
+  --color-raised: #1b1b21;
+  --color-line: #2a2a33;
+  --color-text: #f4f4f5;
+  --color-muted: #a1a1aa;
+  --color-faint: #71717a;
+  --color-accent: #d7263d;
+  --color-accent-strong: #b81d31;
+  --color-amber: #f5a524;
+  --color-orange: #f97316;
+  --color-good: #22c55e;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-jp: var(--font-noto-jp), "Hiragino Sans", "Yu Gothic", sans-serif;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Soft glassy card used throughout. In the components layer so utilities (border-accent, bg-accent/10) can override it. */
+@layer components {
+  .card {
+    background-image: linear-gradient(180deg, rgb(27 27 33 / 0.92), rgb(20 20 24 / 0.92));
+    border: 1px solid var(--color-line);
+    border-radius: 1.25rem;
+  }
+
+  /* Tinted variant for warnings: the tint sits over the card gradient. */
+  .card-alert {
+    background-image: linear-gradient(180deg, rgb(215 38 61 / 0.16), rgb(215 38 61 / 0.08));
+    border-color: rgb(215 38 61 / 0.6);
+  }
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hide scrollbars on horizontal strips while keeping them scrollable. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

@@ -20,7 +20,8 @@ A 24/7 car watchlist for AU/NZ buyers. Save the car you want ("R32 GT-R, grade 3
 | Landed cost AU/NZ/US with live exchange rates, "under A$45K landed" watchlists | ✅ Identical to Kensa-ya, proven by 160 golden cases |
 | Deal score: percentile vs comparable cars, one per physical car, with confidence | ✅ |
 | Runs 24/7 on Azure Functions: timer → `collect` queue → `alerts` queue, retries + poison (dead-letter) queues, health endpoint, OpenTelemetry | ✅ Runs locally on Azurite |
-| Web app (lot page, watchlists, bid button) | Next |
+| Web app: matches + lot page (gallery, landed-cost breakdown, deal score, decoded sheet on a car diagram, countdown, "I want to bid") | ✅ Next.js 16 + Mitsuke.Api |
+| Accounts: sign-in, create watchlists, keep watching / not for me | Next |
 | Email and push notifications | Planned |
 | Auction sheet decoded into plain English via Kensa-ya's partner API; serious red flags lead the alert | ✅ |
 | Bicep IaC, CD, Key Vault, Application Insights in Azure | Planned |
@@ -65,6 +66,8 @@ Why things are the way they are: [docs/thecarapi-findings.md](docs/thecarapi-fin
 | `src/Mitsuke.Functions` | Azure Functions (isolated, .NET 10): the timer + two queue-triggered stages, `GET /api/health`, OpenTelemetry to Application Insights. |
 | `src/Mitsuke.Kensaya` | Client for Kensa-ya's partner API (sheet decoding), with its own resilience pipeline. |
 | `src/Mitsuke.Notifications` | Delivery channels behind `INotifier` (Discord webhook now; email and push next). |
+| `src/Mitsuke.Api` | ASP.NET Core minimal API for the web app: lot views, matches, watchlists, bid requests (validated, rate-limited). OpenAPI at `/openapi/v1.json` in development. |
+| `web/` | Next.js 16 front end (React 19, Tailwind 4, Cache Components / partial prerendering). Calls the API from its server only. |
 | `src/Mitsuke.Cli` | Local runner: `migrate`, `seed`, `scan`. |
 | `tests/Mitsuke.Tests` | xUnit unit tests, plus integration tests against a real Postgres via Testcontainers. Hand-written fixtures (no copied API data; the provider's terms forbid redistributing raw feeds). |
 
@@ -84,6 +87,15 @@ dotnet run --project src/Mitsuke.Cli -- scan    # run it twice: the second pass 
 ```
 
 Set `DISCORD_WEBHOOK_URL` in `.env` to get alerts in Discord instead of the console.
+
+### Run the web app
+
+```bash
+dotnet run --project src/Mitsuke.Api --urls http://localhost:5107   # the API (reads .env)
+cd web && npm install && npm run dev                                # http://localhost:3001
+```
+
+Alerts link to their lot page when `MITSUKE_WEB_URL` is set in `.env`.
 
 ### Run it 24/7 locally (Azure Functions + Azurite)
 

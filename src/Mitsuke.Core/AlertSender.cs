@@ -18,6 +18,12 @@ public enum AlertOutcome
 /// and deliver it. A failed send is recorded and the exception rethrown, so the caller's retry mechanism
 /// (a queue's redelivery, or the next scan) tries again; the claim makes a repeat delivery impossible.
 /// </summary>
+/// <summary>Where alerts link to: the web app's lot page. Absent means alerts carry no link (e.g. no web app yet).</summary>
+public sealed record AlertLinks(Uri WebBaseUrl)
+{
+    public Uri LotUrl(Guid listingId) => new(WebBaseUrl, $"lot/{listingId}");
+}
+
 public sealed partial class AlertSender(
     IListingStore listings,
     IWatchlistStore watchlists,
@@ -30,7 +36,8 @@ public sealed partial class AlertSender(
     ISheetReportStore sheetReports,
     INotifier notifier,
     TimeProvider clock,
-    ILogger<AlertSender> logger)
+    ILogger<AlertSender> logger,
+    AlertLinks? links = null)
 {
     /// <summary>Cached details younger than this are reused rather than refetched.</summary>
     public static readonly TimeSpan DetailsMaxAge = TimeSpan.FromHours(24);
@@ -58,7 +65,8 @@ public sealed partial class AlertSender(
             var deal = DealScorer.Score(listing, await comparables.GetCandidatesAsync(listing, cancellationToken: cancellationToken));
             var sheet = await GetSheetReportAsync(request.ListingId, details?.CurrentSheet, cancellationToken);
 
-            await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, details, landed, deal, sheet), cancellationToken);
+            await notifier.SendAsync(
+                AlertFormatter.Format(watchlist, listing, details, landed, deal, sheet, links?.LotUrl(request.ListingId)), cancellationToken);
             await alerts.MarkSentAsync(alertId, cancellationToken);
             LogSent(logger, listing.Key, watchlist.Name, notifier.Channel);
             return AlertOutcome.Sent;

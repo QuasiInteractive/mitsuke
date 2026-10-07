@@ -36,6 +36,9 @@ builder.Services.AddMitsukePricing();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<Collector>();
 builder.Services.AddSingleton<AlertSender>();
+// MITSUKE_WEB_URL (e.g. https://mitsuke.vercel.app/) makes every alert link to its lot page.
+if (Uri.TryCreate(builder.Configuration["MITSUKE_WEB_URL"], UriKind.Absolute, out var webUrl))
+    builder.Services.AddSingleton(new AlertLinks(webUrl.AbsoluteUri.EndsWith('/') ? webUrl : new Uri(webUrl.AbsoluteUri + "/")));
 builder.Services.AddSingleton<Scanner>();
 builder.Services.AddMitsukeNotifications(builder.Configuration);
 builder.Services.AddKensayaSheetDecoding(builder.Configuration);

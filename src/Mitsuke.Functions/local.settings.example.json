@@ -8,6 +8,7 @@
     "THECARAPI_KEY": "",
     "DISCORD_WEBHOOK_URL": "",
     "KENSAYA_BASE_URL": "",
-    "KENSAYA_PARTNER_KEY": ""
+    "KENSAYA_PARTNER_KEY": "",
+    "MITSUKE_WEB_URL": ""
   }
 }

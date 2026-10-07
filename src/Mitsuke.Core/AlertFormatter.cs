@@ -13,7 +13,7 @@ public static class AlertFormatter
 
     public static string Format(
         Watchlist watchlist, Listing listing, ListingDetails? details = null, LandedEstimate? landed = null, DealScore? deal = null,
-        SheetReport? sheet = null)
+        SheetReport? sheet = null, Uri? lotUrl = null)
     {
         ArgumentNullException.ThrowIfNull(watchlist);
         ArgumentNullException.ThrowIfNull(listing);
@@ -89,6 +89,7 @@ public static class AlertFormatter
             if (others.Count > 0) sb.AppendLine(CultureInfo.InvariantCulture, $"Also check: {string.Join("; ", others)}.");
         }
 
+        if (lotUrl is not null) sb.AppendLine(CultureInfo.InvariantCulture, $"View in Mitsuke → {lotUrl}");
         sb.AppendLine(listing.Attribution);
         sb.Append(Disclaimer);
         return sb.ToString();

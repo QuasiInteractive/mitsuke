@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mitsuke.Core\Mitsuke.Core.csproj" />
+    <ProjectReference Include="..\Mitsuke.Data\Mitsuke.Data.csproj" />
+    <ProjectReference Include="..\Mitsuke.Pricing\Mitsuke.Pricing.csproj" />
+    <ProjectReference Include="..\Mitsuke.Notifications\Mitsuke.Notifications.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

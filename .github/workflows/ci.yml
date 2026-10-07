@@ -48,3 +48,28 @@ jobs:
         with:
           name: test-results
           path: TestResults/*.trx
+
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # next build type-checks too. Pages stream live data at request time, so no API is needed here.
+      - name: Build
+        run: npm run build

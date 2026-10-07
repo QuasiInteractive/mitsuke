@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Mitsuke.Api/Mitsuke.Api.csproj" />
     <Project Path="src/Mitsuke.Cli/Mitsuke.Cli.csproj" />
     <Project Path="src/Mitsuke.Core/Mitsuke.Core.csproj" />
     <Project Path="src/Mitsuke.Data/Mitsuke.Data.csproj" />
