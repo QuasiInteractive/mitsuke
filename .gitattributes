@@ -1,0 +1,3 @@
+# Normalise line endings in the repo; checkouts get the platform default.
+* text=auto
+*.sh text eol=lf
