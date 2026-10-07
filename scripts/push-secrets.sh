@@ -19,8 +19,11 @@ pooler="$(get PROD_DB_POOLER_HOST)"; ref="$(get PROD_SUPABASE_URL | sed -E 's#ht
 db="Host=$pooler;Port=5432;Database=postgres;Username=postgres.$ref;Password=$(get PROD_DB_PASSWORD);SSL Mode=Require;Search Path=mitsuke"
 
 tmp="$(mktemp)"; trap 'rm -f "$tmp"' EXIT
-# az is a Windows program under Git Bash: give it a Windows path (C:\...), not /tmp/...
-aztmp="$tmp"; command -v cygpath >/dev/null && aztmp="$(cygpath -w "$tmp")"
+# When az is the Windows program (Git Bash, or WSL calling az.cmd), it needs a Windows path, not /tmp/...
+aztmp="$tmp"
+if command -v cygpath >/dev/null; then aztmp="$(cygpath -w "$tmp")"                                   # Git Bash
+elif command -v wslpath >/dev/null && [[ "$(command -v az)" == /mnt/* ]]; then aztmp="$(wslpath -w "$tmp")"  # WSL using Windows az
+fi
 put() {
   [ -n "$2" ] || { echo "  skipped $1 (empty in .env)"; return; }
   printf '%s' "$2" > "$tmp"
