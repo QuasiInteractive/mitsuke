@@ -35,20 +35,25 @@ public sealed partial class DetailsRefreshSender(QueueClient queue, TimeProvider
     }
 
     /// <summary>
-    /// DETAILS_QUEUE_URI (Azure, managed identity) or DETAILS_QUEUE_CONNECTION (local Azurite). Neither: no background
-    /// refresh, and lot pages simply show the details they have.
+    /// The API's two ways into the pipeline, both send-only: the <c>details</c> queue (refresh a lot's saved details) and
+    /// the <c>collect</c> queue (search a watchlist now). In Azure: DETAILS_QUEUE_URI and COLLECT_QUEUE_URI with the
+    /// managed identity. Locally: DETAILS_QUEUE_CONNECTION (Azurite) for both. Unset: lot pages show what they have, and
+    /// new watchlists wait for the next scheduled run.
     /// </summary>
-    public static IServiceCollection AddDetailsRefresh(IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddPipelineQueues(IServiceCollection services, IConfiguration configuration)
     {
-        var options = new QueueClientOptions { MessageEncoding = QueueMessageEncoding.Base64 }; // what the Functions trigger reads
-        QueueClient? client = null;
-        if (Uri.TryCreate(configuration["DETAILS_QUEUE_URI"], UriKind.Absolute, out var uri))
-            client = new QueueClient(uri, new DefaultAzureCredential(new DefaultAzureCredentialOptions { ManagedIdentityClientId = configuration["AZURE_CLIENT_ID"] }), options);
-        else if (configuration["DETAILS_QUEUE_CONNECTION"] is { Length: > 0 } connection)
-            client = new QueueClient(connection, "details", options);
+        var options = new QueueClientOptions { MessageEncoding = QueueMessageEncoding.Base64 }; // what the Functions triggers read
+        QueueClient? Client(string uriSetting, string queueName)
+        {
+            if (Uri.TryCreate(configuration[uriSetting], UriKind.Absolute, out var uri))
+                return new QueueClient(uri, new DefaultAzureCredential(new DefaultAzureCredentialOptions { ManagedIdentityClientId = configuration["AZURE_CLIENT_ID"] }), options);
+            return configuration["DETAILS_QUEUE_CONNECTION"] is { Length: > 0 } connection ? new QueueClient(connection, queueName, options) : null;
+        }
 
-        if (client is not null)
-            services.AddSingleton<IDetailsRefreshRequests>(sp => new DetailsRefreshSender(client, sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<ILogger<DetailsRefreshSender>>()));
+        if (Client("DETAILS_QUEUE_URI", "details") is { } details)
+            services.AddSingleton<IDetailsRefreshRequests>(sp => new DetailsRefreshSender(details, sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<ILogger<DetailsRefreshSender>>()));
+        if (Client("COLLECT_QUEUE_URI", "collect") is { } collect)
+            services.AddSingleton<ICollectRequests>(sp => new CollectRequestSender(collect, sp.GetRequiredService<TimeProvider>(), sp.GetRequiredService<ILogger<CollectRequestSender>>()));
         return services;
     }
 

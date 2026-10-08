@@ -25,7 +25,8 @@ public static class MeEndpoints
         });
 
         me.MapPost("/watchlists", async Task<Results<Created<WatchlistCreated>, ValidationProblem>> (
-            CreateWatchlistBody body, ClaimsPrincipal principal, IUserStore users, IUserWatchlistStore watchlists, CancellationToken ct) =>
+            CreateWatchlistBody body, ClaimsPrincipal principal, IUserStore users, IUserWatchlistStore watchlists,
+            [FromServices] ICollectRequests? collect, CancellationToken ct) =>
         {
             var errors = body.Validate();
             if (errors.Count > 0) return TypedResults.ValidationProblem(errors);
@@ -39,24 +40,31 @@ public static class MeEndpoints
 
             var watchlist = body.ToWatchlist();
             await watchlists.AddAsync(user.Id, watchlist, ct);
+            if (collect is not null) await collect.RequestAsync(watchlist.Id, ct); // results in seconds, not at the next run
             return TypedResults.Created($"/api/me/watchlists/{watchlist.Id}", new WatchlistCreated(watchlist.Id));
         });
 
         me.MapPatch("/watchlists/{id:guid}", async Task<Results<NoContent, NotFound>> (
-            Guid id, UpdateWatchlistBody body, ClaimsPrincipal principal, IUserStore users, IUserWatchlistStore watchlists, CancellationToken ct) =>
+            Guid id, UpdateWatchlistBody body, ClaimsPrincipal principal, IUserStore users, IUserWatchlistStore watchlists,
+            [FromServices] ICollectRequests? collect, CancellationToken ct) =>
         {
             var user = await CurrentUserAsync(principal, users, ct);
-            return await watchlists.SetActiveAsync(user.Id, id, body.IsActive, ct) ? TypedResults.NoContent() : TypedResults.NotFound();
+            if (!await watchlists.SetActiveAsync(user.Id, id, body.IsActive, ct)) return TypedResults.NotFound();
+            if (body.IsActive && collect is not null) await collect.RequestAsync(id, ct); // resumed: catch up now
+            return TypedResults.NoContent();
         });
 
         me.MapPut("/watchlists/{id:guid}", async Task<Results<NoContent, NotFound, ValidationProblem>> (
-            Guid id, CreateWatchlistBody body, ClaimsPrincipal principal, IUserStore users, IUserWatchlistStore watchlists, CancellationToken ct) =>
+            Guid id, CreateWatchlistBody body, ClaimsPrincipal principal, IUserStore users, IUserWatchlistStore watchlists,
+            [FromServices] ICollectRequests? collect, CancellationToken ct) =>
         {
             var errors = body.Validate();
             if (errors.Count > 0) return TypedResults.ValidationProblem(errors);
 
             var user = await CurrentUserAsync(principal, users, ct);
-            return await watchlists.UpdateAsync(user.Id, body.ToWatchlist() with { Id = id }, ct) ? TypedResults.NoContent() : TypedResults.NotFound();
+            if (!await watchlists.UpdateAsync(user.Id, body.ToWatchlist() with { Id = id }, ct)) return TypedResults.NotFound();
+            if (collect is not null) await collect.RequestAsync(id, ct); // what it looks for changed: search again now
+            return TypedResults.NoContent();
         });
 
         me.MapDelete("/watchlists/{id:guid}", async Task<Results<NoContent, NotFound>> (

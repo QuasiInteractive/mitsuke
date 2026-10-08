@@ -2,6 +2,12 @@ using Microsoft.Extensions.Logging;
 
 namespace Mitsuke.Core;
 
+/// <summary>Asks the pipeline to search a watchlist now instead of at the next scheduled run (after a create or edit).</summary>
+public interface ICollectRequests
+{
+    Task RequestAsync(Guid watchlistId, CancellationToken cancellationToken = default);
+}
+
 /// <summary>A match to alert on. Small and id-only so it travels well as a queue message.</summary>
 public sealed record AlertRequest(Guid WatchlistId, Guid ListingId);
 
