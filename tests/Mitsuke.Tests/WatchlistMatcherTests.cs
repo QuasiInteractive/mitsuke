@@ -32,6 +32,15 @@ public class WatchlistMatcherTests
     }
 
     [Fact]
+    public void A_matching_chassis_code_wins_over_the_feeds_model_name()
+    {
+        var evo = new Watchlist { Id = Guid.NewGuid(), Name = "Evo", Make = "Mitsubishi", Model = "Lancer Evolution", ModelCodes = new HashSet<string> { "CT9A" } };
+        Assert.True(WatchlistMatcher.IsMatch(evo, Fixtures.Gtr(b => { b.Make = "Mitsubishi"; b.Model = "Lancer"; b.ModelCode = "CT9A"; })));
+        Assert.Contains("model code CS2A", WatchlistMatcher.Mismatches(evo, Fixtures.Gtr(b => { b.Make = "Mitsubishi"; b.Model = "Lancer"; b.ModelCode = "CS2A"; })));
+        Assert.Contains("make Toyota", WatchlistMatcher.Mismatches(evo, Fixtures.Gtr(b => { b.Make = "Toyota"; b.ModelCode = "CT9A"; })));
+    }
+
+    [Fact]
     public void Non_gtr_skyline_is_rejected_by_model_code()
     {
         var gtst = Fixtures.Gtr(b => b.ModelCode = "HCR32");

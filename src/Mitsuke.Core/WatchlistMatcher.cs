@@ -23,11 +23,18 @@ public static class WatchlistMatcher
         var reasons = new List<string>();
 
         if (!Same(watchlist.Make, listing.Make)) reasons.Add($"make {listing.Make}");
-        if (!Same(watchlist.Model, listing.Model)) reasons.Add($"model {listing.Model}");
 
-        if (watchlist.ModelCodes.Count > 0 &&
-            (listing.ModelCode is null || !watchlist.ModelCodes.Contains(listing.ModelCode, StringComparer.OrdinalIgnoreCase)))
-            reasons.Add($"model code {listing.ModelCode ?? "unknown"}");
+        // A chassis code identifies the car more precisely than the feed's model name, which varies (a CT9A Evo can be
+        // listed as "Lancer" or "Lancer Evolution"). So when the watchlist names codes, the code decides; otherwise the model.
+        if (watchlist.ModelCodes.Count > 0)
+        {
+            if (listing.ModelCode is null || !watchlist.ModelCodes.Contains(listing.ModelCode, StringComparer.OrdinalIgnoreCase))
+                reasons.Add($"model code {listing.ModelCode ?? "unknown"}");
+        }
+        else if (!Same(watchlist.Model, listing.Model))
+        {
+            reasons.Add($"model {listing.Model}");
+        }
 
         if (listing.IsModified && !watchlist.IncludeModified) reasons.Add("modified");
 

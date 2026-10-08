@@ -19,10 +19,39 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
 
     public string Name => JapanListingMapper.SourceName;
 
+    /// <summary>
+    /// Model names this feed uses interchangeably. Its <c>model</c> filter is an exact match, and the same car can be
+    /// filed under either name: on 8 Oct 2026 "Lancer" held four CT9A Evos while "Lancer Evolution" held one.
+    /// A search for any name in a group searches them all. Add a group only after seeing it in live data.
+    /// </summary>
+    private static readonly string[][] ModelNameGroups =
+    [
+        ["Lancer Evolution", "Lancer"],
+    ];
+
+    internal static IReadOnlyList<string> ModelsToSearch(string model)
+    {
+        var group = ModelNameGroups.FirstOrDefault(g => g.Contains(model.Trim(), StringComparer.OrdinalIgnoreCase));
+        return group is null ? [model] : [model, .. group.Where(m => !m.Equals(model.Trim(), StringComparison.OrdinalIgnoreCase))];
+    }
+
     public IAsyncEnumerable<Listing> SearchAsync(SourceQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
-        return PagedAsync(query, (offset, limit) => BuildSearchUrl(query, offset, limit), cancellationToken);
+        return AcrossModelNamesAsync(query, (q, offset, limit) => BuildSearchUrl(q, offset, limit), cancellationToken);
+    }
+
+    /// <summary>Runs the search once per model name in the query's group, yielding each lot once.</summary>
+    private async IAsyncEnumerable<Listing> AcrossModelNamesAsync(
+        SourceQuery query, Func<SourceQuery, int, int, string> buildUrl, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var seen = new HashSet<ListingKey>();
+        foreach (var model in ModelsToSearch(query.Model))
+        {
+            var q = query with { Model = model };
+            await foreach (var listing in PagedAsync(q, (offset, limit) => buildUrl(q, offset, limit), cancellationToken))
+                if (seen.Add(listing.Key)) yield return listing;
+        }
     }
 
     /// <summary>
@@ -32,7 +61,7 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
     public IAsyncEnumerable<Listing> SearchArchiveAsync(SourceQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
-        return PagedAsync(query, (offset, limit) => BuildSearchUrl(query, offset, limit, "/api/archive/search"), cancellationToken);
+        return AcrossModelNamesAsync(query, (q, offset, limit) => BuildSearchUrl(q, offset, limit, "/api/archive/search"), cancellationToken);
     }
 
     private async IAsyncEnumerable<Listing> PagedAsync(

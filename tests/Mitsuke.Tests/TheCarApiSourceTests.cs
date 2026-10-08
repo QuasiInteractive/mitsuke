@@ -42,6 +42,28 @@ public class TheCarApiSourceTests
     }
 
     [Fact]
+    public async Task Searches_every_name_the_feed_files_a_model_under_and_yields_each_lot_once()
+    {
+        var handler = new StubHandler(
+            _ => Ok(Fixtures.SearchPage(2, Row("1"), Row("2"))),
+            _ => Ok(Fixtures.SearchPage(2, Row("2"), Row("3"))));
+        var source = CreateSource(handler);
+
+        var ids = await source.SearchAsync(new SourceQuery("Mitsubishi", "Lancer Evolution", 2003, 2007)).Select(l => l.Key.SourceId).ToListAsync();
+
+        Assert.Equal(["1", "2", "3"], ids);
+        Assert.Contains("model=Lancer%20Evolution&", handler.Requests[0].RequestUri!.Query, StringComparison.Ordinal);
+        Assert.Contains("model=Lancer&", handler.Requests[1].RequestUri!.Query, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("Lancer", "Lancer|Lancer Evolution")]
+    [InlineData("lancer evolution", "lancer evolution|Lancer")]
+    [InlineData("Skyline", "Skyline")]
+    public void Model_name_groups_work_from_either_name(string model, string expected) =>
+        Assert.Equal(expected, string.Join('|', TheCarApiSource.ModelsToSearch(model)));
+
+    [Fact]
     public async Task Never_exceeds_the_page_cap()
     {
         // A server that always claims more results must not turn into a crawl.
