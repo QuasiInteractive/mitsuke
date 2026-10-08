@@ -31,14 +31,26 @@ public sealed partial class Collector(
         var matches = new List<AlertRequest>();
         var rejected = new Dictionary<string, int>(StringComparer.Ordinal);
 
+        // Store everything seen (dedupe + price history happen per listing), then match one copy per car: the feed
+        // sometimes lists the same lot twice (ListingIdentity), and two copies must never mean two alerts.
+        var stored = new List<(Listing Listing, Guid Id)>();
         foreach (var source in sources)
         {
             await foreach (var listing in source.SearchAsync(watchlist.ToSourceQuery(), cancellationToken))
             {
                 seen++;
-                var stored = await listings.UpsertAsync(listing, cancellationToken);
-                if (stored.IsNew) fresh++;
+                var upsert = await listings.UpsertAsync(listing, cancellationToken);
+                if (upsert.IsNew) fresh++;
+                stored.Add((listing, upsert.ListingId));
+            }
+        }
 
+        var cars = ListingIdentity.OnePerCar(stored, s => s.Listing).ToList();
+        if (stored.Count > cars.Count) rejected["listed twice (kept one copy)"] = stored.Count - cars.Count;
+
+        foreach (var (listing, listingId) in cars)
+        {
+            {
                 // Local maths plus a cached exchange rate: cheap enough to run for every listing.
                 var landed = listing.Price is { } price
                     ? await landedCost.EstimateAsync(price, watchlist.Destination, cancellationToken)
@@ -54,7 +66,7 @@ public sealed partial class Collector(
 
                 // Already-alerted matches are emitted too: the alert log's claim, not the collector, is what
                 // guarantees once-only delivery, so a lost queue message can never mean a lost alert.
-                matches.Add(new AlertRequest(watchlist.Id, stored.ListingId));
+                matches.Add(new AlertRequest(watchlist.Id, listingId));
             }
         }
 

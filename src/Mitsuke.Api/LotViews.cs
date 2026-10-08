@@ -162,9 +162,13 @@ public sealed class LotViewBuilder(
     {
         ArgumentNullException.ThrowIfNull(watchlist);
         var near = new List<(int Misses, decimal Landed, CloseMatch Match)>();
+        var current = new List<(Guid Id, Listing Listing)>();
         foreach (var id in await queries.GetCurrentLotsAsync(watchlist, now, 60, cancellationToken))
+            if (await listings.GetAsync(id, cancellationToken) is { } found) current.Add((id, found));
+
+        // The feed sometimes lists one lot twice: show the car once.
+        foreach (var (id, listing) in ListingIdentity.OnePerCar(current, c => c.Listing))
         {
-            if (await listings.GetAsync(id, cancellationToken) is not { } listing) continue;
             var landed = listing.Price is { } price ? await landedCost.EstimateAsync(price, watchlist.Destination, cancellationToken) : null;
             var misses = WatchlistMatcher.Mismatches(watchlist, listing, now, landed);
             if (misses.Count is 0 or > 2 || misses.Contains("too late to bid")) continue;
