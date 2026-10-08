@@ -142,6 +142,60 @@ public sealed class MeApiTests(PostgresFixture pg) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NoContent, (await _http.SendAsync(As(Alice, HttpMethod.Delete, $"/api/me/watchlists/{alices}"))).StatusCode);
     }
 
+    private static object Budget(string destination, string? currency, decimal amount) => new
+    {
+        name = "R32", make = "Nissan", model = "Skyline", modelCodes = new List<string> { "BNR32" }, includeRepaired = false,
+        destination, budgetCurrency = currency, maxLandedAmount = amount,
+    };
+
+    [Fact]
+    public async Task Budgets_can_be_landed_in_aud_nzd_usd_or_an_auction_price_in_yen()
+    {
+        var store = new PostgresWatchlistStore(pg.Db);
+
+        var usd = (await store.GetAsync(await CreateAsync(Alice, Budget("US", "USD", 40_000))))!;
+        Assert.Equal(("US", new Money(40_000m, "USD")), (usd.Destination, usd.MaxLanded!.Value));
+
+        var yen = (await store.GetAsync(await CreateAsync(Alice, Budget("AU", "JPY", 4_000_000))))!;
+        Assert.Equal(new Money(4_000_000m, "JPY"), yen.MaxPrice);
+        Assert.Null(yen.MaxLanded);
+
+        var legacy = (await store.GetAsync(await CreateAsync(Alice, Budget("NZ", null, 50_000))))!; // old clients send no currency
+        Assert.Equal(new Money(50_000m, "NZD"), legacy.MaxLanded);
+    }
+
+    [Fact]
+    public async Task A_landed_budget_has_to_be_in_the_destinations_currency()
+    {
+        var res = await _http.SendAsync(As(Alice, HttpMethod.Post, "/api/me/watchlists", Budget("AU", "NZD", 40_000)));
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+        Assert.True((await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("errors").TryGetProperty("budgetCurrency", out _));
+        Assert.Equal(HttpStatusCode.BadRequest, (await _http.SendAsync(As(Alice, HttpMethod.Post, "/api/me/watchlists", Budget("JP", null, 40_000)))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Close_matches_show_what_is_at_auction_and_why_it_missed()
+    {
+        var id = await CreateAsync(Alice, Budget("AU", "AUD", 45_000));
+        var now = DateTimeOffset.UtcNow;
+        var listings = new PostgresListingStore(pg.Db);
+        Listing Lot(string sourceId, string grade, int km) => Fixtures.Gtr() with
+        {
+            Key = new ListingKey("thecarapi-japan", sourceId), Grade = AuctionGrade.Parse(grade), MileageKm = km,
+            AuctionEndsAt = now.AddDays(3), ObservedAt = now, Price = new Money(2_000_000m, "JPY"),
+        };
+        await listings.UpsertAsync(Lot("fits", "4", 80_000));          // a full match: an alert, not a close match
+        await listings.UpsertAsync(Lot("repaired", "R", 80_000));      // misses by one thing
+        await listings.UpsertAsync(Fixtures.Gtr() with { Key = new ListingKey("thecarapi-japan", "late"), Grade = AuctionGrade.Parse("R"), AuctionEndsAt = now.AddHours(2), ObservedAt = now });
+
+        var res = await _http.SendAsync(As(Alice, HttpMethod.Get, $"/api/me/watchlists/{id}/close-matches"));
+        var close = await res.Content.ReadFromJsonAsync<JsonElement>();
+
+        var only = Assert.Single(close.EnumerateArray());
+        Assert.Equal("Repaired (accident history)", only.GetProperty("missesBy")[0].GetString());
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.SendAsync(As(Bob, HttpMethod.Get, $"/api/me/watchlists/{id}/close-matches"))).StatusCode);
+    }
+
     private static object Device(string endpoint) => new { endpoint, keys = new { p256dh = "BPublicKey", auth = "authSecret" } };
 
     [Fact]

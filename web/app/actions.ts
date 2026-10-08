@@ -32,6 +32,7 @@ function watchlistBody(form: FormData) {
     includeRepaired: form.get("includeRepaired") === "on",
     destination: form.get("destination"),
     maxLandedAmount: num("maxLandedAmount"),
+    budgetCurrency: form.get("budgetCurrency") || null,
   };
 }
 

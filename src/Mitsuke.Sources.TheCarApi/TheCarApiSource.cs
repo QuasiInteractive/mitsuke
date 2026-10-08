@@ -19,6 +19,9 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
 
     public string Name => JapanListingMapper.SourceName;
 
+    /// <summary>The resilient, rate-limited client, shared with <see cref="TheCarApiCatalog"/> so every request counts against one limit.</summary>
+    internal HttpClient Http => http;
+
     /// <summary>
     /// Model names this feed uses interchangeably. Its <c>model</c> filter is an exact match, and the same car can be
     /// filed under either name: on 8 Oct 2026 "Lancer" held four CT9A Evos while "Lancer Evolution" held one.

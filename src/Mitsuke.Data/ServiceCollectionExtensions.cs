@@ -25,6 +25,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IUserWatchlistStore, PostgresUserWatchlistStore>();
         services.AddSingleton<IFeedbackStore, PostgresFeedbackStore>();
         services.AddSingleton<IPushSubscriptionStore, PostgresPushSubscriptionStore>();
+        services.AddSingleton<ICatalogStore, PostgresCatalogStore>();
         return services;
     }
 }

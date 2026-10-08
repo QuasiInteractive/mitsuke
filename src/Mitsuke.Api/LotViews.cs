@@ -43,6 +43,9 @@ public sealed record LotView
     public required string Disclaimer { get; init; }
 }
 
+/// <summary>A lot that nearly fits a watchlist, and what it misses by ("landed A$46,420 > A$45,000").</summary>
+public sealed record CloseMatch(LotCard Lot, IReadOnlyList<string> MissesBy);
+
 /// <summary>A compact card for lists (home page, watchlist matches).</summary>
 public sealed record LotCard(
     Guid Id,
@@ -148,6 +151,46 @@ public sealed class LotViewBuilder(
                 match.AlertedAt));
         }
         return cards;
+    }
+
+    /// <summary>
+    /// Lots on auction now that miss the watchlist by one or two things, fewest misses first: so a quiet watchlist still
+    /// shows what's out there and why it didn't alert. Lots whose bidding has closed aren't worth showing.
+    /// </summary>
+    public async Task<IReadOnlyList<CloseMatch>> CloseMatchesAsync(Watchlist watchlist, DateTimeOffset now, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(watchlist);
+        var near = new List<(int Misses, decimal Landed, CloseMatch Match)>();
+        foreach (var id in await queries.GetCurrentLotsAsync(watchlist, now, 60, cancellationToken))
+        {
+            if (await listings.GetAsync(id, cancellationToken) is not { } listing) continue;
+            var landed = listing.Price is { } price ? await landedCost.EstimateAsync(price, watchlist.Destination, cancellationToken) : null;
+            var misses = WatchlistMatcher.Mismatches(watchlist, listing, now, landed);
+            if (misses.Count is 0 or > 2 || misses.Contains("too late to bid")) continue;
+
+            var card = (await CardsAsync([new MatchSummary(id, watchlist.Id, watchlist.Name, now)], watchlist.Destination, cancellationToken)).Single();
+            near.Add((misses.Count, landed?.Total.Amount ?? decimal.MaxValue, new CloseMatch(card, misses.Select(Plain).ToList())));
+        }
+        return near.OrderBy(n => n.Misses).ThenBy(n => n.Landed).Take(12).Select(n => n.Match).ToList();
+    }
+
+    /// <summary>The matcher's log wording, for people: "grade 3.5 < 4.0" becomes "Grade 3.5 (you want 4.0+)".</summary>
+    internal static string Plain(string reason)
+    {
+        var parts = reason.Split(" > ", 2);
+        if (reason.StartsWith("landed ", StringComparison.Ordinal) && parts.Length == 2)
+            return $"Est. {parts[0]["landed ".Length..]} landed, over your {parts[1]} budget";
+        if (reason.StartsWith("price ", StringComparison.Ordinal) && parts.Length == 2)
+            return $"Opening bid {parts[0]["price ".Length..]}, over your {parts[1]} limit";
+        if (reason.StartsWith("mileage ", StringComparison.Ordinal) && parts.Length == 2)
+            return $"{parts[0]["mileage ".Length..]}, over your {parts[1]} km";
+        if (reason.StartsWith("grade ", StringComparison.Ordinal) && reason.Split(" < ", 2) is [var g, var min])
+            return $"Grade {g["grade ".Length..]} (you want {min}+)";
+        if (reason.StartsWith("year ", StringComparison.Ordinal))
+            return $"Built {reason["year ".Length..].Split(' ')[0]}, outside your years";
+        if (reason.StartsWith("repaired", StringComparison.Ordinal)) return "Repaired (accident history)";
+        if (reason == "no landed estimate") return "No opening price yet";
+        return char.ToUpperInvariant(reason[0]) + reason[1..];
     }
 
     internal static string Title(Listing l) =>

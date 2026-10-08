@@ -38,6 +38,22 @@ public sealed class PostgresReadQueries(NpgsqlDataSource db, IWatchlistStore wat
         return rows.Select(r => new MatchSummary(r.ListingId, r.WatchlistId, r.Name, new DateTimeOffset(DateTime.SpecifyKind(r.AlertedAt, DateTimeKind.Utc)))).ToList();
     }
 
+    public async Task<IReadOnlyList<Guid>> GetCurrentLotsAsync(Watchlist watchlist, DateTimeOffset now, int limit, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(watchlist);
+        await using var conn = await db.OpenConnectionAsync(cancellationToken);
+        var codes = watchlist.ModelCodes.Select(c => c.ToUpperInvariant()).ToArray();
+        return (await conn.QueryAsync<Guid>("""
+            select id from listings
+            where lower(make) = lower(@make)
+              and (case when cardinality(@codes) > 0 then upper(model_code) = any(@codes) else lower(model) = lower(@model) end)
+              and last_seen_at > @now - interval '2 days'
+              and (auction_ends_at is null or auction_ends_at > @now)
+            order by last_seen_at desc
+            limit @limit
+            """, new { make = watchlist.Make, model = watchlist.Model, codes = PgArray.Of(codes), now, limit })).ToList();
+    }
+
     public async Task<IReadOnlyList<MatchSummary>> GetUserMatchesAsync(Guid userId, int limit, CancellationToken cancellationToken = default)
     {
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
