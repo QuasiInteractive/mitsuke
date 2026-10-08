@@ -35,6 +35,7 @@ if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_
     builder.Services.AddOpenTelemetry().UseAzureMonitor();
     builder.Services.AddMitsukeTelemetryRules();
 }
+DetailsRefreshSender.AddDetailsRefresh(builder.Services, builder.Configuration);
 builder.Services.AddSingleton<LotViewBuilder>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();

@@ -35,6 +35,7 @@ internal static class JapanDetailsMapper
         {
             Key = key,
             FetchedAt = fetchedAt,
+            Format = ListingDetails.CurrentFormat,
             Sheets = sheets,
             Relists = relists,
             InteriorGrade = string.IsNullOrWhiteSpace(ci?.InteriorGrade) ? null : ci.InteriorGrade.Trim(),

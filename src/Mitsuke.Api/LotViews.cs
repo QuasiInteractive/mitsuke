@@ -67,7 +67,8 @@ public sealed class LotViewBuilder(
     ILandedCostEstimator landedCost,
     IComparablesStore comparables,
     IReadQueries queries,
-    IEligibilityChecker eligibility)
+    IEligibilityChecker eligibility,
+    IDetailsRefreshRequests? refresh = null)
 {
     public async Task<LotView?> BuildAsync(Guid listingId, string destination, CancellationToken cancellationToken)
     {
@@ -75,6 +76,9 @@ public sealed class LotViewBuilder(
         if (listing is null) return null;
 
         var detail = await details.GetAsync(listingId, cancellationToken);
+        // Saved before a newer field existed: show what we have now, and have the pipeline fetch the rest.
+        if (detail is not null && !DetailsRefresher.IsCurrent(detail) && refresh is not null)
+            await refresh.RequestAsync(listingId, cancellationToken);
         var sheet = await sheets.GetAsync(listingId, cancellationToken);
         var landed = listing.Price is { } price ? await landedCost.EstimateAsync(price, destination, cancellationToken) : null;
         var deal = DealScorer.Score(listing, await comparables.GetCandidatesAsync(listing, cancellationToken: cancellationToken));

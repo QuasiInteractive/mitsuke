@@ -206,7 +206,7 @@ public sealed partial class AlertSender(
     private async Task<ListingDetails?> GetDetailsAsync(Guid listingId, ListingKey key, CancellationToken cancellationToken)
     {
         var cached = await detailsStore.GetAsync(listingId, cancellationToken);
-        if (cached is not null && clock.GetUtcNow() - cached.FetchedAt < DetailsMaxAge) return cached;
+        if (DetailsRefresher.IsCurrent(cached) && clock.GetUtcNow() - cached!.FetchedAt < DetailsMaxAge) return cached;
 
         var source = detailSources.FirstOrDefault(s => s.CanFetch(key));
         if (source is null) return cached;

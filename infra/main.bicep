@@ -100,8 +100,9 @@ resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-05-0
   name: 'default'
 }
 
-// The two pipeline queues and their dead-letter queues (the Functions host moves a message to *-poison after 5 tries).
-resource queues 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-05-01' = [for name in [ 'collect', 'collect-poison', 'alerts', 'alerts-poison' ]: {
+// The pipeline queues and their dead-letter queues (the Functions host moves a message to *-poison after 5 tries).
+// "details": lot pages ask the pipeline to refresh a listing's saved details.
+resource queues 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-05-01' = [for name in [ 'collect', 'collect-poison', 'alerts', 'alerts-poison', 'details', 'details-poison' ]: {
   parent: queueService
   name: name
 }]
@@ -256,6 +257,8 @@ resource api 'Microsoft.Web/sites@2024-04-01' = {
       healthCheckPath: '/api/health'
       appSettings: concat(shared, [
         { name: 'ASPNETCORE_ENVIRONMENT', value: 'Production' }
+        // Send-only use of the details queue, with the shared identity (Storage Queue Data Contributor).
+        { name: 'DETAILS_QUEUE_URI', value: '${storage.properties.primaryEndpoints.queue}details' }
       ], push)
     }
   }

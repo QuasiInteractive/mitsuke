@@ -27,8 +27,15 @@ public sealed record SpecItem(string Label, string Value, bool Checked);
 /// </summary>
 public sealed record ListingDetails
 {
+    /// <summary>
+    /// Bumped when the mapper starts filling a new field. Saved details from an older format are refreshed in the
+    /// background (<see cref="DetailsRefresher"/>). 0 = before formats existed; 2 = spec list and gearbox.
+    /// </summary>
+    public const int CurrentFormat = 2;
+
     public required ListingKey Key { get; init; }
     public required DateTimeOffset FetchedAt { get; init; }
+    public int Format { get; init; }
     public IReadOnlyList<AuctionSheet> Sheets { get; init; } = [];
     public IReadOnlyList<Relist> Relists { get; init; } = [];
     public string? InteriorGrade { get; init; }
