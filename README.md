@@ -31,7 +31,7 @@ flowchart LR
   E --> U
 ```
 
-Poison queues catch messages that fail five times. The CLI (`dotnet run -- scan`) runs the same `Collector` and `AlertSender` in-process, so local runs and the cloud share one code path.
+Each message gets five attempts. A failed alert then moves to `alerts-poison` for inspection, because it's a promise to tell someone about a car. A failed or stale collect message is simply dropped, because the next run ten minutes later does the same work. The CLI (`dotnet run -- scan`) runs the same `Collector` and `AlertSender` in-process, so local runs and the cloud share one code path.
 
 ### Decisions worth reading
 
@@ -67,6 +67,8 @@ OpenTelemetry from both apps to Application Insights: requests, outbound depende
 **Telemetry has a budget.** Log Analytics has a 100 MB/day cap. On day one, per-minute connection-pool and GC gauges made up about 70% of ingestion, so both apps now drop them through shared OpenTelemetry views ([`MitsukeTelemetry.cs`](src/Shared/MitsukeTelemetry.cs)), and the Functions host's startup dumps are logged only at Warning. The same file strips device tokens from Web Push endpoint URLs before they reach a trace. URL query strings are redacted, and API keys travel in headers, never URLs.
 
 **Incident, 7 Oct 2026, 21:40–22:05 UTC.** TheCarApi stopped responding. Searches hit the 20 s attempt timeout, retries ran out and the circuit breaker opened, so calls failed fast instead of piling up. Three scheduled runs failed: each watchlist's message was tried five times, then parked in `collect-poison`. The 22:10 run, scheduled as normal, found every lot again. No alert was lost or duplicated, because collecting is stateless (each run re-reads the market) and the claim log makes resending safe. Lots also appear days before their auction. Nobody had to step in. The dashboard shows it as a spike of resilience events next to 45 failed `Collect` attempts.
+
+The follow-up came from those parked messages: they were work the next run had already redone, so they were noise in a queue meant for things that need a human. Collect messages now carry their schedule time and are dropped once a newer run has replaced them, and a collect that fails its last attempt is logged as an error and completed. `alerts-poison` is unchanged.
 
 ### Cost
 

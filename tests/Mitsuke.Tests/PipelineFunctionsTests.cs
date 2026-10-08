@@ -26,14 +26,18 @@ public sealed class PipelineFunctionsTests(PostgresFixture pg) : IAsyncLifetime
 
     public Task DisposeAsync() => Task.CompletedTask;
 
-    private PipelineFunctions Functions(params Listing[] lots)
+    private readonly FakeTimeProvider _clock = new(Now);
+
+    private PipelineFunctions Functions(params Listing[] lots) => Functions(new OneShotSource(lots));
+
+    private PipelineFunctions Functions(IListingSource source)
     {
         var watchlists = new PostgresWatchlistStore(pg.Db);
-        var collector = new Collector([new OneShotSource(lots)], new PostgresListingStore(pg.Db), Landed.Estimator, new FakeTimeProvider(Now), NullLogger<Collector>.Instance);
+        var collector = new Collector([source], new PostgresListingStore(pg.Db), Landed.Estimator, new FakeTimeProvider(Now), NullLogger<Collector>.Instance);
         var sender = new AlertSender(new PostgresListingStore(pg.Db), watchlists, new PostgresAlertLog(pg.Db), [], new PostgresListingDetailsStore(pg.Db),
             Landed.Estimator, new PostgresComparablesStore(pg.Db),
             [], new PostgresSheetReportStore(pg.Db), new Notifications.ConsoleNotifier(), new FakeTimeProvider(Now), NullLogger<AlertSender>.Instance);
-        return new PipelineFunctions(watchlists, collector, sender, NullLogger<PipelineFunctions>.Instance);
+        return new PipelineFunctions(watchlists, collector, sender, _clock, NullLogger<PipelineFunctions>.Instance);
     }
 
     [Fact]
@@ -46,13 +50,14 @@ public sealed class PipelineFunctionsTests(PostgresFixture pg) : IAsyncLifetime
 
         var request = JsonSerializer.Deserialize<CollectRequest>(Assert.Single(messages), PipelineFunctions.Json);
         Assert.Equal(_r32.Id, request!.WatchlistId);
+        Assert.Equal(Now, request.ScheduledAt);
     }
 
     [Fact]
     public async Task Collect_emits_one_alert_message_per_match_in_the_shape_SendAlert_reads()
     {
         var lot = Fixtures.Gtr() with { Key = new ListingKey("fake", "1"), AuctionEndsAt = Now.AddDays(2) };
-        var messages = await Functions(lot).Collect(new CollectRequest(_r32.Id), CancellationToken.None);
+        var messages = await Functions(lot).CollectAsync(new CollectRequest(_r32.Id), 1, CancellationToken.None);
 
         var request = JsonSerializer.Deserialize<AlertRequest>(Assert.Single(messages), PipelineFunctions.Json)!;
         Assert.Equal(_r32.Id, request.WatchlistId);
@@ -66,8 +71,60 @@ public sealed class PipelineFunctionsTests(PostgresFixture pg) : IAsyncLifetime
         await using (var conn = await pg.Db.OpenConnectionAsync())
             await conn.ExecuteAsync("update watchlists set is_active = false");
 
-        Assert.Empty(await Functions(lot).Collect(new CollectRequest(_r32.Id), CancellationToken.None));
-        Assert.Empty(await Functions(lot).Collect(new CollectRequest(Guid.NewGuid()), CancellationToken.None));
+        Assert.Empty(await Functions(lot).CollectAsync(new CollectRequest(_r32.Id), 1, CancellationToken.None));
+        Assert.Empty(await Functions(lot).CollectAsync(new CollectRequest(Guid.NewGuid()), 1, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task A_collect_message_overtaken_by_a_newer_run_is_dropped_without_searching()
+    {
+        var source = new FailingSource();
+        _clock.Advance(TimeSpan.FromMinutes(25)); // e.g. redelivered long after an outage
+
+        Assert.Empty(await Functions(source).CollectAsync(new CollectRequest(_r32.Id, Now), 1, CancellationToken.None));
+        Assert.Equal(0, source.Calls);
+    }
+
+    [Fact]
+    public async Task A_failing_collect_is_retried_then_given_up_instead_of_dead_lettered()
+    {
+        var functions = Functions(new FailingSource());
+        var request = new CollectRequest(_r32.Id, Now);
+
+        // Earlier attempts throw so the queue redelivers...
+        for (var attempt = 1; attempt < PipelineFunctions.MaxDequeueCount; attempt++)
+            await Assert.ThrowsAsync<HttpRequestException>(() => functions.CollectAsync(request, attempt, CancellationToken.None));
+        // ...and the last one completes the message: the next timer run covers it, so nothing goes to collect-poison.
+        Assert.Empty(await functions.CollectAsync(request, PipelineFunctions.MaxDequeueCount, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task Messages_from_before_the_timestamp_still_work() =>
+        Assert.Empty(await Functions().CollectAsync(new CollectRequest(_r32.Id, ScheduledAt: null), 1, CancellationToken.None));
+
+    [Fact]
+    public void MaxDequeueCount_matches_host_json()
+    {
+        var root = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(root, "Mitsuke.slnx"))) root = Path.GetDirectoryName(root)!;
+        using var host = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "src", "Mitsuke.Functions", "host.json")));
+        Assert.Equal(PipelineFunctions.MaxDequeueCount, host.RootElement.GetProperty("extensions").GetProperty("queues").GetProperty("maxDequeueCount").GetInt32());
+    }
+
+    private sealed class FailingSource : IListingSource
+    {
+        public int Calls { get; private set; }
+        public string Name => "fake";
+
+        public async IAsyncEnumerable<Listing> SearchAsync(SourceQuery query, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            Calls++;
+            await Task.Yield();
+            throw new HttpRequestException("TheCarApi timed out");
+#pragma warning disable CS0162 // an iterator needs a yield
+            yield break;
+#pragma warning restore CS0162
+        }
     }
 
     private sealed class OneShotSource(Listing[] lots) : IListingSource
