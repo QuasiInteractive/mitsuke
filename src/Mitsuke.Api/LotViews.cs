@@ -79,8 +79,9 @@ public sealed class LotViewBuilder(
         if (listing is null) return null;
 
         var detail = await details.GetAsync(listingId, cancellationToken);
-        // Saved before a newer field existed: show what we have now, and have the pipeline fetch the rest.
-        if (detail is not null && !DetailsRefresher.IsCurrent(detail) && refresh is not null)
+        // Never fetched (a close match, not an alert) or saved before a newer field existed: show what we have now
+        // (the search's one small photo), and have the pipeline fetch the full gallery and sheet for next time.
+        if (!DetailsRefresher.IsCurrent(detail) && refresh is not null)
             await refresh.RequestAsync(listingId, cancellationToken);
         var sheet = await sheets.GetAsync(listingId, cancellationToken);
         var landed = listing.Price is { } price ? await landedCost.EstimateAsync(price, destination, cancellationToken) : null;
