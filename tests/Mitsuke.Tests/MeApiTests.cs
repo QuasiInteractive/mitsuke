@@ -282,7 +282,7 @@ public sealed class MeApiTests(PostgresFixture pg) : IAsyncLifetime
     public async Task Bad_watchlists_get_field_errors()
     {
         var res = await _http.SendAsync(As(Alice, HttpMethod.Post, "/api/me/watchlists",
-            new { name = "", make = "Nissan", model = "Skyline", yearFrom = 1995, yearTo = 1990, minGrade = 9, destination = "US", maxLandedAmount = 5 }));
+            new { name = "", make = "Nissan", model = "Skyline", yearFrom = 1995, yearTo = 1990, minGrade = 9, destination = "JP", maxLandedAmount = 5 }));
 
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
         var errors = (await res.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("errors");
