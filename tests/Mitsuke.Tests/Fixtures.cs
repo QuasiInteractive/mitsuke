@@ -21,6 +21,7 @@ internal static class Fixtures
           "model_code": "BNR32",
           "frame_number": "BNR32-000001",
           "production_year": 1991,
+          "production_month": 8,
           "registration_year": 1991,
           "mileage": 87000,
           "auction_grade": "4",

@@ -29,6 +29,30 @@ internal sealed record CarIdentification
 
     [JsonPropertyName("InteriorGrade")]
     public string? InteriorGrade { get; init; }
+
+    [JsonPropertyName("JapanMerged")]
+    public JapanMerged? JapanMerged { get; init; }
+
+    [JsonPropertyName("SheetOcr")]
+    public SheetOcr? SheetOcr { get; init; }
+}
+
+/// <summary>TheCarApi's merge of several feeds for the lot: the most reliable descriptive fields.</summary>
+internal sealed record JapanMerged
+{
+    [JsonPropertyName("Fields")]
+    public Dictionary<string, System.Text.Json.JsonElement>? Fields { get; init; }
+}
+
+/// <summary>
+/// TheCarApi's own OCR of the auction sheet. Noisy (docs/thecarapi-findings.md): only the field names listed in
+/// <see cref="Validated"/> were cross-checked; anything else is shown as "per the sheet".
+/// </summary>
+internal sealed record SheetOcr
+{
+    public string? Status { get; init; }
+    public Dictionary<string, System.Text.Json.JsonElement>? Fields { get; init; }
+    public List<string>? Validated { get; init; }
 }
 
 internal sealed record InspectionReport

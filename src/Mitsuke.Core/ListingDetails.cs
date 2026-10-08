@@ -18,6 +18,9 @@ public sealed record Relist(
     string? Confidence,
     IReadOnlyList<string> Changes);
 
+/// <summary>One fact about the car. <paramref name="Checked"/> is false for values machine-read from the sheet and not cross-checked.</summary>
+public sealed record SpecItem(string Label, string Value, bool Checked);
+
 /// <summary>
 /// The expensive, per-car detail behind a listing: sheets, relist history, full gallery.
 /// Fetched only for watchlist matches (one request per car) and cached.
@@ -31,6 +34,12 @@ public sealed record ListingDetails
     public string? InteriorGrade { get; init; }
     public int? EngineCc { get; init; }
     public IReadOnlyList<Uri> PhotoUrls { get; init; } = [];
+
+    /// <summary>Everything else known about the car (colour, gearbox, registration...), in display order.</summary>
+    public IReadOnlyList<SpecItem> Spec { get; init; } = [];
+
+    /// <summary>Forward gears of a manual gearbox, from the sheet's shift code (F6 is 6); null for automatics or unknown.</summary>
+    public int? ManualGears { get; init; }
 
     [JsonIgnore]
     public AuctionSheet? CurrentSheet => Sheets.FirstOrDefault(s => s.IsCurrent);

@@ -40,6 +40,9 @@ public sealed record Listing
     public string? FrameNumber { get; init; }
 
     public int? Year { get; init; }
+
+    /// <summary>Month of manufacture (1–12) when the source gives it, alongside a production <see cref="Year"/>.</summary>
+    public int? Month { get; init; }
     public int? MileageKm { get; init; }
     public AuctionGrade? Grade { get; init; }
     public Money? Price { get; init; }

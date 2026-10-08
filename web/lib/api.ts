@@ -72,6 +72,9 @@ export type LotView = {
   auctionEndsAt: string | null;
   auctionDay: string | null;
   openingBid: Money | null;
+  month: number | null;
+  variant: { name: string; certain: boolean; reason: string } | null;
+  spec: { label: string; value: string; checked: boolean }[];
   landed: LandedEstimate | null;
   eligibility: ImportEligibility | null;
   deal: DealScore | null;

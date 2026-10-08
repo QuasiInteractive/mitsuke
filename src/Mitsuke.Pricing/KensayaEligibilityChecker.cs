@@ -5,8 +5,8 @@ namespace Mitsuke.Pricing;
 
 /// <summary>
 /// Import eligibility from Kensa-ya's engine and country rules (vendored, proven identical by EligibilityParityTests).
-/// The feed's year is the production year; its month isn't kept, so the engine assumes December, the cautious choice
-/// near a 25-year cut-off. Modifications from the decoded sheet can turn a "yes" into a "maybe".
+/// Uses the production year and month; with no month the engine assumes December, the cautious choice near a
+/// 25-year cut-off. Modifications from the decoded sheet can turn a "yes" into a "maybe".
 /// </summary>
 public sealed class KensayaEligibilityChecker(IRulesSource rules, TimeProvider clock) : IEligibilityChecker
 {
@@ -19,7 +19,7 @@ public sealed class KensayaEligibilityChecker(IRulesSource rules, TimeProvider c
         if (countryRules is null) return null;
 
         var result = Eligibility.Evaluate(countryRules, new EligibilityInput(
-            listing.Year, AsOf: clock.GetUtcNow(), YearBasis: YearBasis.Manufacture, Modifications: modifications));
+            listing.Year, listing.Month, clock.GetUtcNow(), YearBasis.Manufacture, modifications));
 
         return new ImportEligibility
         {

@@ -29,18 +29,18 @@ public sealed class PostgresListingStore(NpgsqlDataSource db) : IListingStore
         // and the price-change check below can't double-insert.
         var row = await conn.QuerySingleAsync<(Guid Id, bool Inserted)>("""
             insert into listings (
-                source, source_id, vehicle_id, make, model, model_code, is_modified, frame_number, year, mileage_km,
+                source, source_id, vehicle_id, make, model, model_code, is_modified, frame_number, year, month, mileage_km,
                 grade_raw, grade_score, grade_repaired, auction_house, lot_number, auction_ends_at,
                 transmission, fuel, right_hand_drive, photo_urls, attribution, first_seen_at, last_seen_at)
             values (
-                @Source, @SourceId, @vehicleId, @Make, @Model, @ModelCode, @IsModified, @FrameNumber, @Year, @MileageKm,
+                @Source, @SourceId, @vehicleId, @Make, @Model, @ModelCode, @IsModified, @FrameNumber, @Year, @Month, @MileageKm,
                 @GradeRaw, @GradeScore, @GradeRepaired, @AuctionHouse, @LotNumber, @AuctionEndsAt,
                 @Transmission, @Fuel, @RightHandDrive, @PhotoUrls, @Attribution, @seenAt, @seenAt)
             on conflict (source, source_id) do update set
                 vehicle_id = coalesce(excluded.vehicle_id, listings.vehicle_id),
                 make = excluded.make, model = excluded.model, model_code = excluded.model_code,
                 is_modified = excluded.is_modified, frame_number = coalesce(excluded.frame_number, listings.frame_number),
-                year = excluded.year, mileage_km = excluded.mileage_km,
+                year = excluded.year, month = excluded.month, mileage_km = excluded.mileage_km,
                 grade_raw = excluded.grade_raw, grade_score = excluded.grade_score, grade_repaired = excluded.grade_repaired,
                 auction_house = excluded.auction_house, lot_number = excluded.lot_number, auction_ends_at = excluded.auction_ends_at,
                 transmission = excluded.transmission, fuel = excluded.fuel, right_hand_drive = excluded.right_hand_drive,
@@ -58,6 +58,7 @@ public sealed class PostgresListingStore(NpgsqlDataSource db) : IListingStore
             listing.IsModified,
             listing.FrameNumber,
             listing.Year,
+            listing.Month,
             listing.MileageKm,
             GradeRaw = listing.Grade?.Raw,
             GradeScore = listing.Grade?.Score,
@@ -100,7 +101,7 @@ public sealed class PostgresListingStore(NpgsqlDataSource db) : IListingStore
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
         var r = await conn.QuerySingleOrDefaultAsync<ListingRow>("""
             select l.source as Source, l.source_id as SourceId, l.make as Make, l.model as Model, l.model_code as ModelCode,
-                   l.is_modified as IsModified, l.frame_number as FrameNumber, l.year as Year, l.mileage_km as MileageKm,
+                   l.is_modified as IsModified, l.frame_number as FrameNumber, l.year as Year, l.month as Month, l.mileage_km as MileageKm,
                    l.grade_raw as GradeRaw, l.auction_house as AuctionHouse, l.lot_number as LotNumber,
                    l.auction_ends_at as AuctionEndsAt, l.transmission as Transmission, l.fuel as Fuel,
                    l.right_hand_drive as RightHandDrive, l.photo_urls as PhotoUrls, l.attribution as Attribution,
@@ -125,6 +126,7 @@ public sealed class PostgresListingStore(NpgsqlDataSource db) : IListingStore
             IsModified = r.IsModified,
             FrameNumber = r.FrameNumber,
             Year = r.Year,
+            Month = r.Month,
             MileageKm = r.MileageKm,
             Grade = AuctionGrade.Parse(r.GradeRaw),
             Price = r.PriceAmount is { } amount && r.PriceCurrency is { } currency ? new Money(amount, currency.Trim()) : null,
@@ -159,6 +161,7 @@ public sealed class PostgresListingStore(NpgsqlDataSource db) : IListingStore
         public bool IsModified { get; init; }
         public string? FrameNumber { get; init; }
         public int? Year { get; init; }
+        public short? Month { get; init; }
         public int? MileageKm { get; init; }
         public string? GradeRaw { get; init; }
         public string? AuctionHouse { get; init; }

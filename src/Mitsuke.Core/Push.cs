@@ -39,7 +39,8 @@ public static class PushFormatter
 {
     private static readonly CultureInfo Au = CultureInfo.GetCultureInfo("en-AU");
 
-    public static PushMessage Format(Listing listing, LandedEstimate? landed, DealScore? deal, SheetReport? sheet, Uri? lotUrl, ImportEligibility? import = null)
+    public static PushMessage Format(
+        Listing listing, LandedEstimate? landed, DealScore? deal, SheetReport? sheet, Uri? lotUrl, ImportEligibility? import = null, ListingDetails? details = null)
     {
         ArgumentNullException.ThrowIfNull(listing);
         var title = string.Join(' ', new[] { listing.Year?.ToString(CultureInfo.InvariantCulture), listing.Make, listing.Model }.Where(s => !string.IsNullOrEmpty(s)))
@@ -48,6 +49,7 @@ public static class PushFormatter
 
         var parts = new List<string>();
         if (serious is not null) parts.Add($"⚠ {serious.Title}");
+        if (ModelVariants.Identify(listing, details) is { } variant) parts.Add((variant.Certain ? "" : "Likely ") + variant.Name);
         if (landed is not null) parts.Add(string.Create(Au, $"Est. {(landed.Total.Currency == "NZD" ? "NZ$" : "A$")}{landed.Total.Amount:N0} landed"));
         // An importable car needs no mention here; anything else is worth knowing before tapping.
         if (import is { Verdict: not EligibilityVerdict.Yes }) parts.Add($"Import: {char.ToLowerInvariant(import.Headline[0])}{import.Headline[1..]}");

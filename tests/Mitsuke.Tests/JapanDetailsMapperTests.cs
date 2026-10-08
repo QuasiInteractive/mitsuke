@@ -20,6 +20,12 @@ public class JapanDetailsMapperTests
             "images": [ { "served_url": "/auction-photo/japan/123/0" }, { "url": "/reseller-image?url=b" } ],
             "car_identification": {
               "InteriorGrade": "C",
+              "JapanMerged": { "Fields": { "color": "WHITE", "model_code": "CT9A" } },
+              "SheetOcr": {
+                "status": "read",
+                "fields": { "shift": "F6", "first_registration": "2003-02", "model_code": "GH-CT9A", "seats": 5, "ac": "AAC", "recycle_fee_jpy": 12470, "car_name": "ラジサ" },
+                "validated": ["model_code", "first_registration"]
+              },
               "InspectionReports": [
                 { "type": "auction_sheet", "url": "/report-vault/japan/123/now.jpg" },
                 { "type": "previous_auction_sheet", "url": "/report-vault/japan/123/old.jpg", "auction_date": "2026-09-04" },
@@ -57,6 +63,35 @@ public class JapanDetailsMapperTests
         Assert.Equal(new Uri("https://api.thecarapi.com/report-vault/japan/123/now.jpg"), d.CurrentSheet!.ImageUrl);
         Assert.Equal(new DateOnly(2026, 9, 4), d.Sheets.Single(s => !s.IsCurrent).AuctionDate);
     }
+
+    [Fact]
+    public void Collects_the_car_facts_and_marks_unchecked_sheet_reads()
+    {
+        var d = Map();
+
+        Assert.Equal(6, d.ManualGears);
+        Assert.Equal(
+            [
+                ("Colour", "White", true),
+                ("Engine", "2,600 cc", true),
+                ("Gearbox", "6-speed manual, floor shift", false),      // OCR, not cross-checked
+                ("First registered in Japan", "Feb 2003", true),       // OCR, but validated
+                ("Full model code", "GH-CT9A", true),
+                ("Seats", "5", false),
+                ("Air conditioning", "Climate control", false),
+                ("Japanese recycling fee", "¥12,470 (paid, usually refunded to the seller)", false),
+            ],
+            d.Spec.Select(s => (s.Label, s.Value, s.Checked)));
+    }
+
+    [Theory]
+    [InlineData("F5", "5-speed manual, floor shift", 5)]
+    [InlineData("C4", "4-speed manual, column shift", 4)]
+    [InlineData("FAT", "Automatic", null)]
+    [InlineData("CVT", "CVT automatic", null)]
+    [InlineData("??", null, null)]
+    public void Reads_japanese_shift_codes(string code, string? label, int? gears) =>
+        Assert.Equal((label, gears), JapanDetailsMapper.Shift(code));
 
     [Fact]
     public void Maps_relists_newest_first_and_skips_undated_ones()

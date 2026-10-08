@@ -22,6 +22,7 @@ internal sealed record AuctionRow
     public string? ModelCode { get; init; }
     public string? FrameNumber { get; init; }
     public int? ProductionYear { get; init; }
+    public int? ProductionMonth { get; init; }
     public int? RegistrationYear { get; init; }
 
     [JsonNumberHandling(JsonNumberHandling.AllowReadingFromString)]

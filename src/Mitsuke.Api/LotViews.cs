@@ -25,6 +25,9 @@ public sealed record LotView
     public DateOnly? AuctionDay { get; init; }
 
     public Money? OpeningBid { get; init; }
+    public int? Month { get; init; }
+    public VariantGuess? Variant { get; init; }
+    public IReadOnlyList<SpecItem> Spec { get; init; } = [];
     public LandedEstimate? Landed { get; init; }
     public ImportEligibility? Eligibility { get; init; }
     public DealScore? Deal { get; init; }
@@ -85,6 +88,9 @@ public sealed class LotViewBuilder(
             ModelCode = listing.ModelCode,
             IsModified = listing.IsModified,
             Year = listing.Year,
+            Month = listing.Month,
+            Variant = ModelVariants.Identify(listing, detail),
+            Spec = detail?.Spec ?? [],
             MileageKm = listing.MileageKm,
             Grade = listing.Grade?.Raw,
             GradeIsRepaired = listing.Grade?.IsRepaired ?? false,

@@ -60,6 +60,9 @@ public static class AlertEmailFormatter
             <tr><td style="padding:0 24px 12px;font-size:14px;color:#a1a1aa;">{HtmlEncode(string.Join(" · ", facts))}</td></tr>
             """);
 
+        if (ModelVariants.Identify(listing, details) is { } variant)
+            html.Append(CultureInfo.InvariantCulture, $"""<tr><td style="padding:0 24px 12px;font-size:14px;color:#d4d4d8;"><strong style="color:#f4f4f5;">{(variant.Certain ? "" : "Likely ")}{HtmlEncode(variant.Name)}.</strong> <span style="color:#a1a1aa;">{HtmlEncode(variant.Reason)}</span></td></tr>""");
+
         foreach (var f in highFlags)
             html.Append(CultureInfo.InvariantCulture, $"""<tr><td style="padding:4px 24px;"><div style="background:#2a1216;border:1px solid #6b1d29;border-radius:12px;padding:12px 14px;font-size:14px;"><strong style="color:{Accent};">⚠ {HtmlEncode(f.Title)}</strong><br><span style="color:#d4d4d8;">{HtmlEncode(f.Detail)}</span></div></td></tr>""");
 

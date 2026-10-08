@@ -40,6 +40,8 @@ public static class AlertFormatter
         sb.Append(CultureInfo.InvariantCulture, $"[{watchlist.Name}] {title}");
         if (facts.Count > 0) sb.Append(". ").Append(string.Join(", ", facts));
         sb.AppendLine(".");
+        if (ModelVariants.Identify(listing, details) is { } variant)
+            sb.AppendLine(CultureInfo.InvariantCulture, $"{(variant.Certain ? "" : "Likely ")}{variant.Name}. {variant.Reason}");
 
         // Serious problems from the sheet come before any price talk: a cheap car is often cheap for a reason.
         foreach (var flag in sheet?.RedFlags.Where(f => f.Severity == FlagSeverity.High) ?? [])

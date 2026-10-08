@@ -50,6 +50,7 @@ async function Lot({ id }: { id: string }) {
           {lot.sheet?.redFlags.some((f) => f.severity === "High") && <RedFlags lot={lot} />}
           {lot.auctionEndsAt && <AuctionCard lot={lot} />}
           {lot.eligibility && <Eligibility lot={lot} />}
+          {(lot.variant || lot.spec.length > 0) && <CarDetails lot={lot} />}
           {lot.sheet && <Condition lot={lot} />}
           {lot.landed && <CostBreakdown lot={lot} />}
           <History lot={lot} />
@@ -72,7 +73,9 @@ async function Lot({ id }: { id: string }) {
 function Header({ lot }: { lot: LotView }) {
   // The sheet can say the odometer is wrong; never show the number as if it were fact.
   const mileageDoubtful = lot.sheet?.redFlags.some((f) => f.severity === "High" && /mileage|odometer/i.test(f.title)) ?? false;
+  const built = lot.year && lot.month ? `Built ${new Date(lot.year, lot.month - 1, 1).toLocaleDateString("en-AU", { month: "short", year: "numeric" })}` : null;
   const chips = [
+    built,
     lot.mileageKm == null ? null : `${km(lot.mileageKm)}${mileageDoubtful ? " (unverified)" : ""}`,
     lot.grade && `Grade ${lot.grade}${lot.gradeIsRepaired ? " (repaired)" : ""}`,
     lot.transmission,
@@ -83,6 +86,12 @@ function Header({ lot }: { lot: LotView }) {
   return (
     <div>
       <h1 className="text-2xl leading-tight font-bold tracking-tight sm:text-3xl">{lot.title}</h1>
+      {lot.variant && (
+        <p className="mt-1 text-lg font-semibold text-accent" title={lot.variant.reason}>
+          {lot.variant.certain ? "" : "Likely "}
+          {lot.variant.name}
+        </p>
+      )}
       <div className="mt-3 flex flex-wrap gap-2">
         {chips.map((c) => (
           <span key={String(c)} className="rounded-full border border-line bg-raised px-3 py-1 text-sm">{c}</span>
@@ -205,6 +214,30 @@ function Condition({ lot }: { lot: LotView }) {
         </div>
       )}
       {sheet.unclear.length > 0 && <p className="mt-3 text-xs text-faint">Couldn&apos;t read confidently: {sheet.unclear.join(", ")}.</p>}
+    </section>
+  );
+}
+
+function CarDetails({ lot }: { lot: LotView }) {
+  const unchecked = lot.spec.some((s) => !s.checked);
+  return (
+    <section className="card p-5">
+      <h2 className="text-lg font-semibold">The car</h2>
+      {lot.variant && <p className="mt-1 text-sm text-muted">{lot.variant.reason}</p>}
+      {lot.spec.length > 0 && (
+        <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
+          {lot.spec.map((s) => (
+            <div key={s.label} className="contents">
+              <dt className="text-muted">{s.label}</dt>
+              <dd>
+                {s.value}
+                {!s.checked && <span className="ml-1 text-faint">*</span>}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {unchecked && <p className="mt-3 text-xs text-faint">* Machine-read from the auction sheet and not cross-checked. Confirm on the sheet image.</p>}
     </section>
   );
 }

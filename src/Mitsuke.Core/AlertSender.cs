@@ -118,7 +118,7 @@ public sealed partial class AlertSender(
                             cancellationToken);
                         break;
                     case "push":
-                        await PushToDevicesAsync(devices, PushFormatter.Format(listing, e.Landed, e.Deal, e.Sheet, e.LotUrl, e.Import), cancellationToken);
+                        await PushToDevicesAsync(devices, PushFormatter.Format(listing, e.Landed, e.Deal, e.Sheet, e.LotUrl, e.Import, e.Details), cancellationToken);
                         break;
                     default:
                         await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, e.Details, e.Landed, e.Deal, e.Sheet, e.LotUrl, e.Import), cancellationToken);

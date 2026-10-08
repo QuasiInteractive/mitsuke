@@ -28,6 +28,8 @@ internal static class JapanListingMapper
             IsModified = isModified,
             FrameNumber = string.IsNullOrWhiteSpace(row.FrameNumber) ? null : row.FrameNumber.Trim(),
             Year = row.ProductionYear ?? row.RegistrationYear,
+            // The month only means something next to a production year.
+            Month = row.ProductionYear is not null && row.ProductionMonth is >= 1 and <= 12 ? row.ProductionMonth : null,
             MileageKm = row.Mileage is { } km ? (int)Math.Round(km) : null,
             Grade = AuctionGrade.Parse(row.AuctionGrade),
             // Only the native amount is trustworthy. public_price_eur carries a reseller markup on live lots.

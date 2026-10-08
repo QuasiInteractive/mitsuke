@@ -30,6 +30,7 @@ public class JapanListingMapperTests
         Assert.False(l.IsModified);
         Assert.Equal("BNR32-000001", l.FrameNumber);
         Assert.Equal(1991, l.Year);
+        Assert.Equal(8, l.Month);
         Assert.Equal(87_000, l.MileageKm);
         Assert.Equal(4m, l.Grade!.Score);
         Assert.Equal("USS Nagoya Hokuriku", l.AuctionHouse);
