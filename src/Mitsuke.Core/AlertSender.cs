@@ -46,7 +46,8 @@ public sealed partial class AlertSender(
     IEmailSender? email = null,
     IUserStore? users = null,
     IPushSender? push = null,
-    IPushSubscriptionStore? pushSubscriptions = null)
+    IPushSubscriptionStore? pushSubscriptions = null,
+    IEligibilityChecker? eligibility = null)
 {
     /// <summary>Cached details younger than this are reused rather than refetched.</summary>
     public static readonly TimeSpan DetailsMaxAge = TimeSpan.FromHours(24);
@@ -90,7 +91,9 @@ public sealed partial class AlertSender(
             var details = await GetDetailsAsync(request.ListingId, listing.Key, cancellationToken);
             var deal = DealScorer.Score(listing, await comparables.GetCandidatesAsync(listing, cancellationToken: cancellationToken));
             var sheet = await GetSheetReportAsync(request.ListingId, details?.CurrentSheet, cancellationToken);
-            return enriched = new Enriched(landed, details, deal, sheet, links?.LotUrl(request.ListingId));
+            // Local rules, no network: "can I even import it?" belongs in every alert.
+            var import = eligibility is null ? null : await eligibility.CheckAsync(listing, watchlist.Destination, sheet?.Modifications, cancellationToken);
+            return enriched = new Enriched(landed, details, deal, sheet, import, links?.LotUrl(request.ListingId));
         }
 
         // Each channel is claimed on its own: a retry after a failed push resends only the push, never the email.
@@ -111,14 +114,14 @@ public sealed partial class AlertSender(
                 {
                     case "email":
                         await email!.SendAsync(
-                            AlertEmailFormatter.Format(recipient!.Email, watchlist, listing, e.Details, e.Landed, e.Deal, e.Sheet, e.LotUrl, links?.ManageUrl),
+                            AlertEmailFormatter.Format(recipient!.Email, watchlist, listing, e.Details, e.Landed, e.Deal, e.Sheet, e.LotUrl, links?.ManageUrl, e.Import),
                             cancellationToken);
                         break;
                     case "push":
-                        await PushToDevicesAsync(devices, PushFormatter.Format(listing, e.Landed, e.Deal, e.Sheet, e.LotUrl), cancellationToken);
+                        await PushToDevicesAsync(devices, PushFormatter.Format(listing, e.Landed, e.Deal, e.Sheet, e.LotUrl, e.Import), cancellationToken);
                         break;
                     default:
-                        await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, e.Details, e.Landed, e.Deal, e.Sheet, e.LotUrl), cancellationToken);
+                        await notifier.SendAsync(AlertFormatter.Format(watchlist, listing, e.Details, e.Landed, e.Deal, e.Sheet, e.LotUrl, e.Import), cancellationToken);
                         break;
                 }
 
@@ -140,7 +143,7 @@ public sealed partial class AlertSender(
         return sent > 0 ? AlertOutcome.Sent : AlertOutcome.AlreadySent;
     }
 
-    private sealed record Enriched(LandedEstimate? Landed, ListingDetails? Details, DealScore? Deal, SheetReport? Sheet, Uri? LotUrl);
+    private sealed record Enriched(LandedEstimate? Landed, ListingDetails? Details, DealScore? Deal, SheetReport? Sheet, ImportEligibility? Import, Uri? LotUrl);
 
     /// <summary>
     /// Sends to every device; a device the push service says is gone is deleted. Succeeds if any device got it,

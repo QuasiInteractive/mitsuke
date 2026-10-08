@@ -11,9 +11,18 @@ public static class AlertFormatter
     private static readonly TimeSpan Jst = TimeSpan.FromHours(9);
     private static readonly CultureInfo Au = CultureInfo.GetCultureInfo("en-AU");
 
+    /// <summary>"✓ Import to AU: Likely eligible via …" or "? Import to AU: Possible via SEVS register. Check before bidding."</summary>
+    public static string? ImportLine(ImportEligibility? import) => import switch
+    {
+        null => null,
+        { Verdict: EligibilityVerdict.Yes } => $"✓ Import to {import.Destination}: {import.Headline}.",
+        { Verdict: EligibilityVerdict.Maybe } => $"? Import to {import.Destination}: {import.Headline}. Check before bidding.",
+        _ => $"✕ Import to {import.Destination}: {import.Headline}.",
+    };
+
     public static string Format(
         Watchlist watchlist, Listing listing, ListingDetails? details = null, LandedEstimate? landed = null, DealScore? deal = null,
-        SheetReport? sheet = null, Uri? lotUrl = null)
+        SheetReport? sheet = null, Uri? lotUrl = null, ImportEligibility? import = null)
     {
         ArgumentNullException.ThrowIfNull(watchlist);
         ArgumentNullException.ThrowIfNull(listing);
@@ -42,6 +51,8 @@ public static class AlertFormatter
             sb.AppendLine(string.Create(Au,
                 $"Est. landed in {landed.Destination}: {Symbol(total.Currency)}{total.Amount:N0} (range {Symbol(low.Currency)}{low.Amount:N0}–{high.Amount:N0})"));
         }
+
+        if (ImportLine(import) is { } importLine) sb.AppendLine(importLine);
 
         if (deal is { Score: { } score })
         {

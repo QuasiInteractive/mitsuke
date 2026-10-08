@@ -19,6 +19,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRulesSource>(sp => ActivatorUtilities.CreateInstance<LiveFx>(
             sp, sp.GetRequiredService<IHttpClientFactory>().CreateClient("fx")));
         services.AddSingleton<ILandedCostEstimator, KensayaLandedCostEstimator>();
+        services.AddSingleton<IEligibilityChecker, KensayaEligibilityChecker>();
         services.AddSingleton(TimeProvider.System);
         return services;
     }

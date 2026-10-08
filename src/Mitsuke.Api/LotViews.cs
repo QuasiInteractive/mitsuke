@@ -26,6 +26,7 @@ public sealed record LotView
 
     public Money? OpeningBid { get; init; }
     public LandedEstimate? Landed { get; init; }
+    public ImportEligibility? Eligibility { get; init; }
     public DealScore? Deal { get; init; }
     public SheetReport? Sheet { get; init; }
 
@@ -62,7 +63,8 @@ public sealed class LotViewBuilder(
     ISheetReportStore sheets,
     ILandedCostEstimator landedCost,
     IComparablesStore comparables,
-    IReadQueries queries)
+    IReadQueries queries,
+    IEligibilityChecker eligibility)
 {
     public async Task<LotView?> BuildAsync(Guid listingId, string destination, CancellationToken cancellationToken)
     {
@@ -94,6 +96,7 @@ public sealed class LotViewBuilder(
             AuctionDay = AlertFormatter.AuctionDay(listing),
             OpeningBid = listing.Price,
             Landed = landed,
+            Eligibility = await eligibility.CheckAsync(listing, destination, sheet?.Modifications, cancellationToken),
             Deal = deal,
             Sheet = sheet,
             // The full gallery when we have it, otherwise the search preview.

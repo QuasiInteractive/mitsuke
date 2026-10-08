@@ -43,6 +43,15 @@ export type SheetReport = {
   unclear: string[];
 };
 export type Relist = { auctionDate: string; auctionHouse: string | null; lotNumber: string | null; mileageKm: number | null; openingBid: Money | null; confidence: string | null; changes: string[] };
+export type ImportEligibility = {
+  destination: string;
+  verdict: "Yes" | "Maybe" | "No";
+  headline: string;
+  reason: string;
+  pathways: { name: string; verdict: "Yes" | "Maybe" | "No"; reason: string }[];
+  links: { label: string; url: string }[];
+  rulesCheckedOn: string;
+};
 export type PricePoint = { observedAt: string; price: Money; kind: string };
 
 export type LotView = {
@@ -64,6 +73,7 @@ export type LotView = {
   auctionDay: string | null;
   openingBid: Money | null;
   landed: LandedEstimate | null;
+  eligibility: ImportEligibility | null;
   deal: DealScore | null;
   sheet: SheetReport | null;
   photos: string[];

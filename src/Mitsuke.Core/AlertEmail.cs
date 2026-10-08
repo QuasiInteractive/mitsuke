@@ -23,7 +23,7 @@ public static class AlertEmailFormatter
 
     public static EmailMessage Format(
         string to, Watchlist watchlist, Listing listing, ListingDetails? details, LandedEstimate? landed, DealScore? deal,
-        SheetReport? sheet, Uri? lotUrl, Uri? manageUrl)
+        SheetReport? sheet, Uri? lotUrl, Uri? manageUrl, ImportEligibility? import = null)
     {
         ArgumentNullException.ThrowIfNull(watchlist);
         ArgumentNullException.ThrowIfNull(listing);
@@ -70,6 +70,18 @@ public static class AlertEmailFormatter
             html.Append(CultureInfo.InvariantCulture, $"""<td width="12"></td><td style="background:#1b1b21;border-radius:12px;padding:14px;" valign="top"><div style="font-size:12px;color:#a1a1aa;">Deal score</div><div style="font-size:26px;font-weight:700;">{score}<span style="font-size:14px;color:#a1a1aa;">/100</span></div><div style="font-size:12px;color:{Accent};font-weight:600;">{HtmlEncode(deal.Label)}</div></td>""");
         html.Append("</tr></table></td></tr>");
 
+        if (import is not null)
+        {
+            var (colour, mark) = import.Verdict switch
+            {
+                EligibilityVerdict.Yes => ("#22c55e", "✓"),
+                EligibilityVerdict.Maybe => ("#f5a524", "?"),
+                _ => (Accent, "✕"),
+            };
+            var check = import.Verdict == EligibilityVerdict.Yes ? "" : " Check before bidding.";
+            html.Append(CultureInfo.InvariantCulture, $"""<tr><td style="padding:0 24px 12px;"><div style="border:1px solid {colour};border-radius:12px;padding:10px 14px;font-size:14px;"><strong style="color:{colour};">{mark} Import to {HtmlEncode(import.Destination)}:</strong> <span style="color:#d4d4d8;">{HtmlEncode(import.Headline)}.{check}</span></div></td></tr>""");
+        }
+
         if (listing.Price is { } price)
             html.Append(string.Create(Au, $"""<tr><td style="padding:0 24px 8px;font-size:13px;color:#a1a1aa;">Opening bid {Symbol(price.Currency)}{price.Amount:N0}{(listing.AuctionHouse is null ? "" : $" · {HtmlEncode(listing.AuctionHouse)}")}{(listing.LotNumber is null ? "" : $" lot {HtmlEncode(listing.LotNumber)}")}</td></tr>"""));
 
@@ -88,7 +100,7 @@ public static class AlertEmailFormatter
             """);
 
         // Plain-text part for clients that don't render HTML: the same text as every other channel.
-        var text = AlertFormatter.Format(watchlist, listing, details, landed, deal, sheet, lotUrl)
+        var text = AlertFormatter.Format(watchlist, listing, details, landed, deal, sheet, lotUrl, import)
                    + (manageUrl is null ? "" : $"\n\nPause or change your watchlists: {manageUrl}");
         return new EmailMessage(to, subject, text, html.ToString());
     }

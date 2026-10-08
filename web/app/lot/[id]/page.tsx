@@ -49,6 +49,7 @@ async function Lot({ id }: { id: string }) {
           <PriceCards lot={lot} />
           {lot.sheet?.redFlags.some((f) => f.severity === "High") && <RedFlags lot={lot} />}
           {lot.auctionEndsAt && <AuctionCard lot={lot} />}
+          {lot.eligibility && <Eligibility lot={lot} />}
           {lot.sheet && <Condition lot={lot} />}
           {lot.landed && <CostBreakdown lot={lot} />}
           <History lot={lot} />
@@ -204,6 +205,48 @@ function Condition({ lot }: { lot: LotView }) {
         </div>
       )}
       {sheet.unclear.length > 0 && <p className="mt-3 text-xs text-faint">Couldn&apos;t read confidently: {sheet.unclear.join(", ")}.</p>}
+    </section>
+  );
+}
+
+const VERDICT = {
+  Yes: { mark: "✓", tone: "text-good border-good/40 bg-good/10" },
+  Maybe: { mark: "?", tone: "text-amber border-amber/40 bg-amber/10" },
+  No: { mark: "✕", tone: "text-accent border-accent/40 bg-accent/10" },
+} as const;
+
+function Eligibility({ lot }: { lot: LotView }) {
+  const e = lot.eligibility!;
+  const v = VERDICT[e.verdict];
+  return (
+    <section className="card p-5">
+      <div className="flex items-start gap-3">
+        <span className={`grid size-9 shrink-0 place-items-center rounded-full border text-lg font-bold ${v.tone}`}>{v.mark}</span>
+        <div>
+          <p className="text-sm text-muted">Can you import it to {e.destination}?</p>
+          <h2 className="text-lg font-semibold">{e.headline}</h2>
+        </div>
+      </div>
+      <ul className="mt-4 space-y-3">
+        {e.pathways.map((p) => (
+          <li key={p.name} className="flex gap-3 text-sm">
+            <span className={`mt-0.5 shrink-0 font-bold ${VERDICT[p.verdict].tone.split(" ")[0]}`}>{VERDICT[p.verdict].mark}</span>
+            <span>
+              <span className="font-medium">{p.name}.</span> <span className="text-muted">{p.reason}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      {e.links.length > 0 && (
+        <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+          {e.links.map((l) => (
+            <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+              {l.label} ↗
+            </a>
+          ))}
+        </p>
+      )}
+      <p className="mt-3 text-xs text-faint">Rules last checked {e.rulesCheckedOn}. Confirm with your exporter or a compliance workshop before bidding.</p>
     </section>
   );
 }
