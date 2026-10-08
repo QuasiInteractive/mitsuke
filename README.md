@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/QuasiInteractive/mitsuke/actions/workflows/ci.yml/badge.svg)](https://github.com/QuasiInteractive/mitsuke/actions/workflows/ci.yml)
 
-A 24/7 car watchlist for Australian and New Zealand buyers. Save the car you want ("R32 GT-R, grade 3.5+, under A$45,000 landed") and Mitsuke watches the Japanese auctions. Within minutes of a matching lot appearing it sends an email and a phone notification with the facts, an estimated landed cost, a deal score and the auction sheet read into plain English.
+A 24/7 car watchlist for Australian and New Zealand buyers. Save the car you want ("R32 GT-R, grade 3.5+, under A$45,000 landed") and Mitsuke watches the Japanese auctions. Within minutes of a matching lot appearing it sends an email and a phone notification with the facts, which generation the car is, an estimated landed cost, whether it can legally be imported, a deal score and the auction sheet read into plain English.
 
 **Live:** [mitsuke-jp.vercel.app](https://mitsuke-jp.vercel.app) · Sister product to [Kensa-ya](https://kensa-ya.vercel.app): *Mitsuke finds the car → Kensa-ya checks the car.*
 
@@ -16,10 +16,12 @@ flowchart LR
     T["⏱ ScheduleCollection<br/>timer, every 10 min"] -->|collect queue| C["Collect<br/>one message per watchlist"]
     C -->|alerts queue| S["SendAlert<br/>one message per match"]
     API["Mitsuke.Api<br/>ASP.NET Core"]
+    API -.->|details queue| R["RefreshDetails<br/>outdated lots"]
     KV[("Key Vault")]
     AI[("App Insights<br/>+ workbook")]
   end
   TCA["TheCarApi<br/>Japan auctions"] -.->|search, lot details| C
+  TCA -.-> R
   C <--> DB[("Postgres<br/>Supabase")]
   S <--> DB
   S -.->|sheet decoding| KY["Kensa-ya<br/>partner API"]
@@ -40,6 +42,10 @@ Each message gets five attempts. A failed alert then moves to `alerts-poison` fo
 - **Polite to the data provider by design.** A hard page cap per search and a sliding-window limiter mean a bad filter can never turn into a bulk crawl of a live API key. Lot details and sheet reads cost money or quota, so they're fetched only for alerts actually going out, and cached.
 - **Swappable sources.** Every provider implements `IListingSource` and emits one normalised `Listing`. Adding Trade Me or an alert-email inbox touches one project.
 - **One engine, two products.** Landed cost is Kensa-ya's engine, vendored unchanged by [`sync-kensaya-engine.sh`](scripts/sync-kensaya-engine.sh). [`LandedCostParityTests`](tests/Mitsuke.Tests/LandedCostParityTests.cs) replays 160 of Kensa-ya's golden cases and fails the build if Mitsuke would quote a different number, to the cent. Sheet reading is Kensa-ya's paid product, so it is *called* over a partner API (bearer key, SSRF host allowlist), never copied.
+- **Rules shared word for word.** Import eligibility (Australia's 25-year rule and SEVS register, NZ and US rules) is Kensa-ya's engine too, vendored by the same script with only one enum restated so none of Kensa-ya's sheet code comes along. [`EligibilityParityTests`](tests/Mitsuke.Tests/EligibilityParityTests.cs) replays all 450 of Kensa-ya's eligibility cases and compares every reason buyers read, character for character. It uses the build month when the feed has one, and assumes December when it doesn't, so it never calls a car eligible early.
+- **Data quirks found in production, fixed at the edge.** TheCarApi's model filter is exact, and it files the same Evo under "Lancer" and "Lancer Evolution": one live watchlist saw 1 car while 4 more were invisible. The fix lives in the adapter (it searches every name in an observed alias group and yields each lot once), and a matching chassis code now outranks the feed's model name. The per-run "why didn't it match" log line is what exposed it.
+- **Saying what we know, and how we know it.** One chassis code can span generations (CT9A is the Evo VII, VIII and IX). [`ModelVariants`](src/Mitsuke.Core/ModelVariants.cs) narrows it by build date, then by gearbox: a 6-speed on the sheet rules out the VII. It says "Likely Evo VIII" when it rests on machine-read data and "VII or VIII" rather than guess. Spec read from the sheet by OCR is marked unless the provider cross-checked it.
+- **Old records catch up without hammering the provider.** Saved lot details carry a format number. When a lot page finds an older one, the API puts a message on a `details` queue and renders what it has; the pipeline, the only place with the provider key, rate limiter and retries, fetches it once. Page views never call TheCarApi, and a car is refetched once per format, not once per view.
 - **Our own price history.** TheCarApi has no Japanese sale prices, so Mitsuke logs every price change and links relisted cars to one `vehicle` by frame number. The deal score ranks a lot against comparable cars (same model code, similar year, km and grade), counting each physical car once and never the car itself. It reports how many cars it used and how confident it is, and says nothing rather than guess when there are fewer than five.
 - **Auth the boring, correct way.** Supabase Auth magic links; Mitsuke stores no passwords. The API validates ES256 tokens with stock JWT bearer auth, discovering the signing keys from the issuer, so there's no shared secret and key rotation needs no deploy. Tests prove that forged, mis-issued, wrong-audience and expired tokens get a 401, and that one person can't read or change another's watchlists or devices.
 - **Private by default.** The production tables live in a schema that Supabase's auto-generated REST API doesn't expose. Azure resources reach storage, queues and Key Vault through a managed identity, with no account keys anywhere. Secrets are Key Vault references, so the values never appear in app settings.
@@ -81,11 +87,13 @@ Built to run in free tiers: Functions Flex Consumption (free grant), App Service
 | Watch Japanese auctions 24/7 | TheCarApi adapter; every 10 minutes per active watchlist |
 | Watchlists | Make, model, chassis codes, years, km, minimum grade, repaired or not, landed budget in A$ or NZ$; JDM presets |
 | Landed cost AU/NZ | Kensa-ya's engine with live exchange rates: car, auction and export fees, shipping, duty, GST, compliance |
+| Import eligibility | Can it legally be imported, and how: 25-year rule, SEVS register, personal import; official links and the rules' last-checked date. On every alert and lot page |
+| Which car exactly | Generation from chassis code, build month and gearbox ("Likely Lancer Evolution VIII"), plus colour, engine, gearbox, first registration, doors, seats, air con |
 | Deal score | Percentile against comparable cars, with confidence; seeded from TheCarApi's archive by `backfill` |
 | Auction sheet in plain English | Kensa-ya partner API; serious red flags (e.g. doubtful mileage) lead the alert |
 | Alerts | HTML email (every value HTML-encoded) and Web Push (VAPID, payload encrypted per device, dead devices pruned on 404/410); Discord for demo lists |
-| Web app | Matches, lot page (gallery, sheet faults on a car diagram, cost breakdown, relist history, countdown), "Not for me" / "Keep watching" / "I want to bid"; installable PWA |
-| Bid hand-off | Mitsuke never bids or holds money: a validated, rate-limited bid request goes to a partner exporter |
+| Web app | Matches, lot page (gallery, sheet faults on a car diagram, cost breakdown, import check, relist history, countdown), "Not for me" / "Keep watching" / "Request a bid"; watchlists you can edit in place; installable PWA |
+| Bid hand-off | Mitsuke never bids or holds money: a validated, rate-limited bid request goes to a partner exporter. Until one is signed, the button says it's a request, not a promise (`NEXT_PUBLIC_BID_PARTNER_LIVE`) |
 
 ## Projects
 
@@ -93,11 +101,11 @@ Built to run in free tiers: Functions Flex Consumption (free grant), App Service
 |---|---|
 | `src/Mitsuke.Core` | Domain and pipeline: `Listing`, `Watchlist`, `WatchlistMatcher`, `Collector`, `AlertSender`, deal score, formatters, interfaces. No infrastructure dependencies. |
 | `src/Mitsuke.Sources.TheCarApi` | TheCarApi adapter: typed `HttpClient`, resilience pipeline, JSON → `Listing` mapping. |
-| `src/Mitsuke.Pricing` | Landed cost: Kensa-ya's engine and country rules (`Kensaya/`, `data/`, synced, never edited) behind `ILandedCostEstimator`, with live exchange rates. |
+| `src/Mitsuke.Pricing` | Landed cost and import eligibility: Kensa-ya's engines and country rules (`Kensaya/`, `data/`, synced, never edited) behind `ILandedCostEstimator` and `IEligibilityChecker`, with live exchange rates. |
 | `src/Mitsuke.Data` | Postgres via Npgsql and Dapper. Forward-only SQL [migrations](src/Mitsuke.Data/Migrations), applied under an advisory lock. |
 | `src/Mitsuke.Kensaya` | Client for Kensa-ya's partner API (sheet decoding), with its own resilience pipeline. |
 | `src/Mitsuke.Notifications` | Channels: Discord/console (`INotifier`), SMTP email (`IEmailSender`), Web Push (`IPushSender`). |
-| `src/Mitsuke.Functions` | Azure Functions (isolated worker, .NET 10): the timer, two queue-triggered stages, `GET /api/health`. |
+| `src/Mitsuke.Functions` | Azure Functions (isolated worker, .NET 10): the timer, the collect and alert stages, the details refresh, `GET /api/health`. |
 | `src/Mitsuke.Api` | Minimal API for the web app: lot views, matches, `/api/me` (watchlists, feedback, devices), bid requests. OpenAPI at `/openapi/v1.json` in development. |
 | `src/Shared` | Telemetry rules compiled into both apps. |
 | `src/Mitsuke.Cli` | Local runner: `migrate`, `seed`, `scan`, `backfill`, `test-email`. |
