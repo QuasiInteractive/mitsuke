@@ -11,6 +11,7 @@ using System.Threading.RateLimiting;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Mitsuke;
 using Mitsuke.Api;
 using Mitsuke.Core;
 using Mitsuke.Data;
@@ -30,7 +31,10 @@ builder.Services.AddMitsukeNotifications(builder.Configuration);
 
 // Requests, dependencies (Postgres, HTTP) and logs to Application Insights in Azure; nothing locally.
 if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+{
     builder.Services.AddOpenTelemetry().UseAzureMonitor();
+    builder.Services.AddMitsukeTelemetryRules();
+}
 builder.Services.AddSingleton<LotViewBuilder>();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();

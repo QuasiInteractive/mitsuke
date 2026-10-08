@@ -15,7 +15,12 @@
     "logLevel": {
       "default": "Information",
       "Polly": "Warning",
-      "System.Net.Http": "Warning"
+      "System.Net.Http": "Warning",
+      "Host.Startup": "Warning",
+      "Microsoft.Azure.WebJobs.Hosting.OptionsLoggingService": "Warning",
+      "Microsoft.Azure.WebJobs.Host.DrainModeManager": "Warning",
+      "Microsoft.Azure.WebJobs.Script.Description.FunctionGroupListenerDecorator": "Warning",
+      "Microsoft.Hosting.Lifetime": "Warning"
     }
   }
 }

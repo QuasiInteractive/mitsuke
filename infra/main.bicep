@@ -127,6 +127,21 @@ resource insights 'Microsoft.Insights/components@2020-02-02' = {
   properties: { Application_Type: 'web', WorkspaceResourceId: logs.id }
 }
 
+// The ops dashboard (Monitor → Workbooks → "Mitsuke · pipeline health"). Its queries are generated and checked
+// against live data by scripts/workbook.py; workbooks are free.
+resource dashboard 'Microsoft.Insights/workbooks@2023-06-01' = {
+  name: guid(resourceGroup().id, 'mitsuke-pipeline-health')
+  location: location
+  tags: union(tags, { 'hidden-title': 'Mitsuke · pipeline health' })
+  kind: 'shared'
+  properties: {
+    displayName: 'Mitsuke · pipeline health'
+    category: 'workbook'
+    sourceId: logs.id
+    serializedData: replace(loadTextContent('workbook.json'), '__WORKSPACE_ID__', logs.id)
+  }
+}
+
 // ------------------------------------------------------------------ secrets
 
 resource vault 'Microsoft.KeyVault/vaults@2023-07-01' = {

@@ -3,6 +3,8 @@ using Microsoft.Azure.Functions.Worker.Builder;
 using Microsoft.Azure.Functions.Worker.OpenTelemetry;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Mitsuke;
 using Mitsuke.Core;
 using Mitsuke.Data;
 using Mitsuke.Kensaya;
@@ -10,6 +12,7 @@ using Mitsuke.Notifications;
 using Mitsuke.Pricing;
 using Mitsuke.Sources.TheCarApi;
 using OpenTelemetry;
+using OpenTelemetry.Trace;
 
 var builder = FunctionsApplication.CreateBuilder(args);
 
@@ -32,7 +35,12 @@ if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_
 {
     builder.Services.AddOpenTelemetry()
         .UseFunctionsWorkerDefaults()
+        .WithTracing(t => t.AddHttpClientInstrumentation()) // TheCarApi, Kensa-ya, Discord, push: as dependencies
         .UseAzureMonitorExporter();
+    builder.Services.AddMitsukeTelemetryRules();
 }
+
+// The HTTP calls are dependencies now; their "Sending HTTP request" log lines would only repeat them.
+builder.Logging.AddFilter("System.Net.Http.HttpClient", LogLevel.Warning);
 
 await builder.Build().RunAsync();
