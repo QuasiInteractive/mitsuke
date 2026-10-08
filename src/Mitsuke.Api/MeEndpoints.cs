@@ -66,6 +66,15 @@ public static class MeEndpoints
             return await watchlists.DeleteAsync(user.Id, id, ct) ? TypedResults.NoContent() : TypedResults.NotFound();
         });
 
+        me.MapGet("/watchlists/{id:guid}/close-matches", async Task<Results<Ok<IReadOnlyList<CloseMatch>>, NotFound>> (
+            Guid id, ClaimsPrincipal principal, IUserStore users, IUserWatchlistStore mine, IWatchlistStore watchlists, LotViewBuilder lots,
+            TimeProvider clock, CancellationToken ct) =>
+        {
+            var user = await CurrentUserAsync(principal, users, ct);
+            if (await watchlists.GetAsync(id, ct) is not { } watchlist || watchlist.OwnerId != user.Id) return TypedResults.NotFound();
+            return TypedResults.Ok(await lots.CloseMatchesAsync(watchlist, clock.GetUtcNow(), ct));
+        });
+
         me.MapGet("/matches", async (string? to, ClaimsPrincipal principal, IUserStore users, IReadQueries queries, LotViewBuilder lots, CancellationToken ct) =>
         {
             var user = await CurrentUserAsync(principal, users, ct);
@@ -201,9 +210,16 @@ public sealed record CreateWatchlistBody(
     decimal? MinGrade,
     bool IncludeRepaired,
     string? Destination,
-    decimal? MaxLandedAmount)
+    decimal? MaxLandedAmount,
+    string? BudgetCurrency = null)
 {
-    private static readonly string[] Destinations = ["AU", "NZ"];
+    /// <summary>Where the car is going, and the currency its landed cost is worked out in.</summary>
+    private static readonly Dictionary<string, string> Destinations = new() { ["AU"] = "AUD", ["NZ"] = "NZD", ["US"] = "USD" };
+
+    private string Country => (Destination ?? "AU").Trim().ToUpperInvariant();
+
+    /// <summary>JPY caps the auction price; anything else caps the landed cost, in the destination's currency.</summary>
+    private string Currency => BudgetCurrency?.Trim().ToUpperInvariant() is { Length: > 0 } c ? c : Destinations.GetValueOrDefault(Country, "AUD");
 
     public Dictionary<string, string[]> Validate()
     {
@@ -217,14 +233,17 @@ public sealed record CreateWatchlistBody(
         else if (YearFrom > YearTo) e["yearFrom"] = ["'From' year must be before 'to' year."];
         if (MaxMileageKm is < 1 or > 1_000_000) e["maxMileageKm"] = ["Mileage must be between 1 and 1,000,000 km."];
         if (MinGrade is < 1 or > 6) e["minGrade"] = ["Auction grades run from 1 to 6."];
-        if (Destination is not null && !Destinations.Contains(Destination.Trim().ToUpperInvariant())) e["destination"] = ["Choose Australia or New Zealand."];
-        if (MaxLandedAmount is < 1_000 or > 10_000_000) e["maxLandedAmount"] = ["Budget must be between 1,000 and 10,000,000."];
+        if (!Destinations.TryGetValue(Country, out var landedIn)) e["destination"] = ["Choose Australia, New Zealand or the US."];
+        else if (Currency != "JPY" && Currency != landedIn)
+            e["budgetCurrency"] = [$"A landed budget is in the currency of where it's going ({landedIn}), or set it in yen for the auction price."];
+        if (Currency == "JPY" ? MaxLandedAmount is < 100_000 or > 2_000_000_000 : MaxLandedAmount is < 1_000 or > 10_000_000)
+            e["maxLandedAmount"] = [Currency == "JPY" ? "A yen budget must be between ¥100,000 and ¥2,000,000,000." : "Budget must be between 1,000 and 10,000,000."];
         return e;
     }
 
     public Watchlist ToWatchlist()
     {
-        var destination = (Destination ?? "AU").Trim().ToUpperInvariant();
+        var destination = Country;
         return new Watchlist
         {
             Id = Guid.NewGuid(),
@@ -238,7 +257,8 @@ public sealed record CreateWatchlistBody(
             MinGrade = MinGrade,
             IncludeRepaired = IncludeRepaired,
             Destination = destination,
-            MaxLanded = MaxLandedAmount is { } amount ? new Money(amount, destination == "NZ" ? "NZD" : "AUD") : null,
+            MaxLanded = MaxLandedAmount is { } amount && Currency != "JPY" ? new Money(amount, Currency) : null,
+            MaxPrice = MaxLandedAmount is { } yen && Currency == "JPY" ? new Money(yen, "JPY") : null,
         };
     }
 }

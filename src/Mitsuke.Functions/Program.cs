@@ -27,6 +27,7 @@ builder.Services.AddKensayaSheetDecoding(builder.Configuration);
 builder.Services.AddSingleton<Collector>();
 builder.Services.AddSingleton<AlertSender>();
 builder.Services.AddSingleton<DetailsRefresher>();
+builder.Services.AddSingleton<CatalogSync>();
 // MITSUKE_WEB_URL (e.g. https://mitsuke.vercel.app/) makes every alert link to its lot page.
 if (Uri.TryCreate(builder.Configuration["MITSUKE_WEB_URL"], UriKind.Absolute, out var webUrl))
     builder.Services.AddSingleton(new AlertLinks(webUrl.AbsoluteUri.EndsWith('/') ? webUrl : new Uri(webUrl.AbsoluteUri + "/")));

@@ -91,6 +91,7 @@ api.MapGet("/watchlists", async (IReadQueries queries, CancellationToken ct) =>
     .WithSummary("The public demo watchlists with how many matches each has had.");
 
 api.MapMeEndpoints();
+api.MapCatalogEndpoints();
 
 api.MapPost("/lots/{id:guid}/bid-requests",
     async Task<Results<Created<BidRequestCreated>, ValidationProblem, NotFound>> (

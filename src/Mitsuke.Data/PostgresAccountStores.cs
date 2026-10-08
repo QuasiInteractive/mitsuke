@@ -72,7 +72,8 @@ public sealed class PostgresUserWatchlistStore(NpgsqlDataSource db, IWatchlistSt
             update watchlists set
                 name = @Name, make = @Make, model = @Model, model_codes = @ModelCodes, year_from = @YearFrom, year_to = @YearTo,
                 max_mileage_km = @MaxMileageKm, min_grade = @MinGrade, include_repaired = @IncludeRepaired,
-                destination = @Destination, max_landed_amount = @MaxLandedAmount, max_landed_currency = @MaxLandedCurrency
+                destination = @Destination, max_landed_amount = @MaxLandedAmount, max_landed_currency = @MaxLandedCurrency,
+                max_price_amount = @MaxPriceAmount, max_price_currency = @MaxPriceCurrency
             where id = @Id and user_id = @userId
             """, new
         {
@@ -90,6 +91,8 @@ public sealed class PostgresUserWatchlistStore(NpgsqlDataSource db, IWatchlistSt
             watchlist.Destination,
             MaxLandedAmount = watchlist.MaxLanded?.Amount,
             MaxLandedCurrency = watchlist.MaxLanded?.Currency,
+            MaxPriceAmount = watchlist.MaxPrice?.Amount,
+            MaxPriceCurrency = watchlist.MaxPrice?.Currency,
         }) == 1;
     }
 

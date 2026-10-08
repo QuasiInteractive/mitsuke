@@ -110,6 +110,11 @@ export type WatchlistSummary = {
   lastMatchAt: string | null;
 };
 
+// ---- The catalogue behind the new-watchlist dropdowns (synced daily from the auctions). ----
+export type CatalogMake = { name: string; slug: string; lots: number };
+export type CatalogModel = { make: string; name: string; label: string; slug: string; lots: number };
+export type CatalogGeneration = { code: string; label: string; yearFrom: number; yearTo: number; seen: number; curated: boolean };
+
 export const API_URL = process.env.MITSUKE_API_URL ?? "http://localhost:5107";
 
 async function get<T>(path: string): Promise<T | null> {
@@ -136,6 +141,7 @@ export type MyWatchlist = WatchlistSummary & {
     maxMileageKm: number | null;
     minGrade: number | null;
     includeRepaired: boolean;
+    maxPrice: Money | null;
   };
 };
 
@@ -156,5 +162,8 @@ export async function sendAs(token: string, method: "POST" | "PUT" | "PATCH" | "
 }
 
 export const getMyWatchlists = async (token: string) => (await getAs<MyWatchlist[]>(token, "/api/me/watchlists")) ?? [];
+export type CloseMatch = { lot: LotCard; missesBy: string[] };
+export const getMyCloseMatches = async (token: string, watchlistId: string) =>
+  (await getAs<CloseMatch[]>(token, `/api/me/watchlists/${encodeURIComponent(watchlistId)}/close-matches`)) ?? [];
 export const getMyMatches = async (token: string) => (await getAs<LotCard[]>(token, "/api/me/matches")) ?? [];
 export const getMyFeedback = (token: string, lotId: string) => getAs<LotFeedback>(token, `/api/me/lots/${encodeURIComponent(lotId)}/feedback`);

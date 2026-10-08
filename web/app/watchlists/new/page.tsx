@@ -6,9 +6,10 @@ export const metadata: Metadata = { title: "New watchlist" };
 
 export default function NewWatchlistPage() {
   return (
-    <div className="mx-auto max-w-2xl pt-4">
-      <h1 className="text-3xl font-bold tracking-tight">What are you hunting for?</h1>
-      <p className="mt-1 text-muted">Pick a classic or describe your own. Mitsuke alerts you when one turns up at auction.</p>
+    <div className="mx-auto max-w-3xl pt-8">
+      <p className="label text-accent">New watchlist</p>
+      <h1 className="display mt-3">What are you hunting for?</h1>
+      <p className="mt-3 max-w-xl text-muted">Pick a classic or describe your own. Mitsuke alerts you when one turns up at auction.</p>
       <WatchlistForm action={createWatchlist} />
     </div>
   );
