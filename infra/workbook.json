@@ -56,7 +56,7 @@
       "content": {
         "version": "KqlItem/1.0",
         "query": "let runs = AppRequests | where Name == 'Collect';\nunion\n  (runs | summarize v = todouble(count()) | extend Metric = 'Collection runs', Order = 1),\n  (runs | summarize v = round(100.0 * countif(Success == true) / count(), 1) | extend Metric = 'Run success %', Order = 2),\n  (AppTraces | where Properties.EventName == 'LogCollected' | summarize v = todouble(sum(toint(Properties.New))) | extend Metric = 'New lots seen', Order = 3),\n  (AppTraces | where Properties.EventName == 'LogSent' | summarize v = todouble(count()) | extend Metric = 'Alerts delivered', Order = 4),\n  (AppDependencies | where Target has 'thecarapi' | summarize v = round(percentile(DurationMs, 95) / 1000, 1) | extend Metric = 'TheCarApi p95 (s)', Order = 5),\n  (AppTraces | where Message has 'OnCircuitOpened' | summarize v = todouble(count()) | extend Metric = 'Circuit breaks', Order = 6)\n| project Metric, Value = coalesce(v, 0.0), Order\n| order by Order asc",
-        "size": 4,
+        "size": 1,
         "title": "At a glance",
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
@@ -147,7 +147,7 @@
       "content": {
         "version": "KqlItem/1.0",
         "query": "AppDependencies\n| where DependencyType in ('HTTP', 'Http')\n| summarize Calls = count(), Failed = countif(Success == false), p50_ms = round(percentile(DurationMs, 50)), p95_ms = round(percentile(DurationMs, 95)) by Target, AppRoleName\n| extend FailurePct = round(100.0 * Failed / Calls, 1)\n| project Target, Caller = iff(AppRoleName has 'api', 'API', 'Pipeline'), Calls, Failed, FailurePct, p50_ms, p95_ms\n| order by Calls desc",
-        "size": 0,
+        "size": 1,
         "title": "Outbound calls: volume, failures, latency",
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
@@ -164,8 +164,8 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "AppTraces\n| where Properties.EventName == 'LogCollected'\n| summarize arg_max(TimeGenerated, Properties), Runs = count() by Watchlist = tostring(Properties.Watchlist)\n| project Watchlist, LastRun = TimeGenerated, Runs, OnAuction = toint(Properties.Seen), Matching = toint(Properties.Matched), WhyNot = tostring(Properties.Rejections)\n| order by Matching desc, Watchlist asc",
-        "size": 0,
+        "query": "AppTraces\n| where Properties.EventName == 'LogCollected'\n| summarize arg_max(TimeGenerated, Properties), Runs = count() by Watchlist = tostring(Properties.Watchlist)\n| project Watchlist, Matching = toint(Properties.Matched), OnAuction = toint(Properties.Seen), WhyNot = tostring(Properties.Rejections), LastRun = TimeGenerated, Runs\n| order by Matching desc, Watchlist asc",
+        "size": 1,
         "title": "Watchlists: latest run, and why lots didn't match",
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
@@ -182,7 +182,7 @@
       "content": {
         "version": "KqlItem/1.0",
         "query": "AppTraces\n| where Properties.EventName in ('LogSent', 'LogSendFailed')\n| summarize Count = count() by Channel = tostring(Properties.Channel), Outcome = iff(Properties.EventName == 'LogSent', 'Delivered', 'Failed')\n| order by Count desc",
-        "size": 0,
+        "size": 1,
         "title": "Alerts by channel",
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,
@@ -200,7 +200,7 @@
       "content": {
         "version": "KqlItem/1.0",
         "query": "AppRequests\n| where AppRoleName has 'api' and Name != 'GET /api/health' and Name !has 'robots'\n| summarize Requests = count(), Errors = countif(toint(ResultCode) >= 500), p95_ms = round(percentile(DurationMs, 95)) by Route = Name\n| order by Requests desc",
-        "size": 0,
+        "size": 1,
         "title": "API routes",
         "timeContextFromParameter": "TimeRange",
         "queryType": 0,

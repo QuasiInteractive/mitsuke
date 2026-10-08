@@ -54,7 +54,7 @@ Q["watchlists"] = r"""
 AppTraces
 | where Properties.EventName == 'LogCollected'
 | summarize arg_max(TimeGenerated, Properties), Runs = count() by Watchlist = tostring(Properties.Watchlist)
-| project Watchlist, LastRun = TimeGenerated, Runs, OnAuction = toint(Properties.Seen), Matching = toint(Properties.Matched), WhyNot = tostring(Properties.Rejections)
+| project Watchlist, Matching = toint(Properties.Matched), OnAuction = toint(Properties.Seen), WhyNot = tostring(Properties.Rejections), LastRun = TimeGenerated, Runs
 | order by Matching desc, Watchlist asc
 """
 Q["alerts"] = r"""
@@ -148,14 +148,14 @@ def workbook():
                "Every external call runs through timeout → retry → circuit breaker, so an outage shows up below as "
                "resilience events and failed runs that recover on their own."),
             TIME_RANGE,
-            kql("tiles", "At a glance", "tiles", extra=TILES, size=4),
+            kql("tiles", "At a glance", "tiles", extra=TILES, size=1),
             kql("runs", "Function runs", "barchart", width=50),
             kql("resilience", "Resilience events (timeouts, retries, circuit breaks)", "barchart", width=50),
             kql("deps", "Outbound calls: p95 latency (ms)", "timechart", width=50),
-            kql("depfail", "Outbound calls: volume, failures, latency", "table", width=50),
-            kql("watchlists", "Watchlists: latest run, and why lots didn't match", "table"),
-            kql("alerts", "Alerts by channel", "table", width=35),
-            kql("api", "API routes", "table", width=65),
+            kql("depfail", "Outbound calls: volume, failures, latency", "table", width=50, size=1),
+            kql("watchlists", "Watchlists: latest run, and why lots didn't match", "table", size=1),
+            kql("alerts", "Alerts by channel", "table", width=35, size=1),
+            kql("api", "API routes", "table", width=65, size=1),
             kql("exceptions", "Exceptions", "table"),
             kql("ingest", "Billable ingestion per day (MB), against the 100 MB daily cap", "barchart"),
         ],
