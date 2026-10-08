@@ -122,6 +122,7 @@ export type MyWatchlist = WatchlistSummary & {
     yearTo: number | null;
     maxMileageKm: number | null;
     minGrade: number | null;
+    includeRepaired: boolean;
   };
 };
 

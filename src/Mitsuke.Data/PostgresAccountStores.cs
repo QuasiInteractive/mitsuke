@@ -64,6 +64,35 @@ public sealed class PostgresUserWatchlistStore(NpgsqlDataSource db, IWatchlistSt
             new { userId, watchlistId, isActive }) == 1;
     }
 
+    public async Task<bool> UpdateAsync(Guid userId, Watchlist watchlist, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(watchlist);
+        await using var conn = await db.OpenConnectionAsync(cancellationToken);
+        return await conn.ExecuteAsync("""
+            update watchlists set
+                name = @Name, make = @Make, model = @Model, model_codes = @ModelCodes, year_from = @YearFrom, year_to = @YearTo,
+                max_mileage_km = @MaxMileageKm, min_grade = @MinGrade, include_repaired = @IncludeRepaired,
+                destination = @Destination, max_landed_amount = @MaxLandedAmount, max_landed_currency = @MaxLandedCurrency
+            where id = @Id and user_id = @userId
+            """, new
+        {
+            userId,
+            watchlist.Id,
+            watchlist.Name,
+            watchlist.Make,
+            watchlist.Model,
+            ModelCodes = PgArray.Of(watchlist.ModelCodes),
+            watchlist.YearFrom,
+            watchlist.YearTo,
+            watchlist.MaxMileageKm,
+            watchlist.MinGrade,
+            watchlist.IncludeRepaired,
+            watchlist.Destination,
+            MaxLandedAmount = watchlist.MaxLanded?.Amount,
+            MaxLandedCurrency = watchlist.MaxLanded?.Currency,
+        }) == 1;
+    }
+
     public async Task<bool> DeleteAsync(Guid userId, Guid watchlistId, CancellationToken cancellationToken = default)
     {
         await using var conn = await db.OpenConnectionAsync(cancellationToken);

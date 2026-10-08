@@ -49,6 +49,16 @@ public static class MeEndpoints
             return await watchlists.SetActiveAsync(user.Id, id, body.IsActive, ct) ? TypedResults.NoContent() : TypedResults.NotFound();
         });
 
+        me.MapPut("/watchlists/{id:guid}", async Task<Results<NoContent, NotFound, ValidationProblem>> (
+            Guid id, CreateWatchlistBody body, ClaimsPrincipal principal, IUserStore users, IUserWatchlistStore watchlists, CancellationToken ct) =>
+        {
+            var errors = body.Validate();
+            if (errors.Count > 0) return TypedResults.ValidationProblem(errors);
+
+            var user = await CurrentUserAsync(principal, users, ct);
+            return await watchlists.UpdateAsync(user.Id, body.ToWatchlist() with { Id = id }, ct) ? TypedResults.NoContent() : TypedResults.NotFound();
+        });
+
         me.MapDelete("/watchlists/{id:guid}", async Task<Results<NoContent, NotFound>> (
             Guid id, ClaimsPrincipal principal, IUserStore users, IUserWatchlistStore watchlists, CancellationToken ct) =>
         {

@@ -192,6 +192,39 @@ public sealed class MeApiTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Editing_a_watchlist_changes_what_it_looks_for_and_keeps_the_rest()
+    {
+        var id = await CreateAsync(Alice, R32());
+        await _http.SendAsync(As(Alice, HttpMethod.Patch, $"/api/me/watchlists/{id}", new { isActive = false }));
+
+        var res = await _http.SendAsync(As(Alice, HttpMethod.Put, $"/api/me/watchlists/{id}", new
+        {
+            name = "Beamer", make = "BMW", model = "M3", modelCodes = new List<string> { "bl32" }, yearFrom = 2000, yearTo = 2006,
+            maxMileageKm = 120_000, minGrade = 4, includeRepaired = true, destination = "NZ", maxLandedAmount = 52_000,
+        }));
+        Assert.Equal(HttpStatusCode.NoContent, res.StatusCode);
+
+        var saved = (await new PostgresWatchlistStore(pg.Db).GetAsync(id))!;
+        Assert.Equal(("Beamer", "BMW", "M3", "BL32"), (saved.Name, saved.Make, saved.Model, saved.ModelCodes.Single()));
+        Assert.Equal((2000, 2006, 120_000, 4m, true), (saved.YearFrom, saved.YearTo, saved.MaxMileageKm, saved.MinGrade, saved.IncludeRepaired));
+        Assert.Equal(new Money(52_000m, "NZD"), saved.MaxLanded);
+        Assert.False(saved.IsActive);          // paused stays paused
+        Assert.Equal(Alice, saved.OwnerId);    // and it's still hers
+    }
+
+    [Fact]
+    public async Task Nobody_edits_someone_elses_watchlist_and_bad_edits_are_refused()
+    {
+        var id = await CreateAsync(Alice, R32());
+
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.SendAsync(As(Bob, HttpMethod.Put, $"/api/me/watchlists/{id}", R32("Bob's now")))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.SendAsync(As(Alice, HttpMethod.Put, $"/api/me/watchlists/{Guid.NewGuid()}", R32()))).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _http.SendAsync(As(Alice, HttpMethod.Put, $"/api/me/watchlists/{id}",
+            new { name = "", make = "Nissan", model = "Skyline", maxLandedAmount = 5 }))).StatusCode);
+        Assert.Equal("R32 GT-R", (await new PostgresWatchlistStore(pg.Db).GetAsync(id))!.Name);
+    }
+
+    [Fact]
     public async Task Bad_watchlists_get_field_errors()
     {
         var res = await _http.SendAsync(As(Alice, HttpMethod.Post, "/api/me/watchlists",

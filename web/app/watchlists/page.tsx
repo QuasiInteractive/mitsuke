@@ -74,6 +74,7 @@ function Row({ item }: { item: MyWatchlist }) {
         <form action={setWatchlistActive.bind(null, w.id, !w.isActive)}>
           <button className="rounded-xl border border-line px-3 py-2 text-sm hover:border-text">{w.isActive ? "Pause" : "Resume"}</button>
         </form>
+        <Link href={`/watchlists/${w.id}/edit`} className="rounded-xl border border-line px-3 py-2 text-sm hover:border-text">Edit</Link>
         <form action={deleteWatchlist.bind(null, w.id)}>
           <button className="rounded-xl border border-line px-3 py-2 text-sm text-muted hover:border-accent hover:text-accent">Delete</button>
         </form>

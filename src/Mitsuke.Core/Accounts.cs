@@ -28,6 +28,12 @@ public interface IUserWatchlistStore
     /// <summary>False when the watchlist doesn't exist or isn't this user's: callers answer 404 either way.</summary>
     Task<bool> SetActiveAsync(Guid userId, Guid watchlistId, bool isActive, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Replaces what the watchlist looks for (the fields a person can set). Its id, owner, paused state and alert
+    /// history stay: cars already alerted aren't alerted again, and newly matching ones are picked up next run.
+    /// </summary>
+    Task<bool> UpdateAsync(Guid userId, Watchlist watchlist, CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAsync(Guid userId, Guid watchlistId, CancellationToken cancellationToken = default);
 }
 

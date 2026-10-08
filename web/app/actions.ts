@@ -15,13 +15,12 @@ const uuid = /^[0-9a-f-]{36}$/i;
 
 export type FormState = { errors?: Record<string, string[]>; message?: string } | undefined;
 
-export async function createWatchlist(_prev: FormState, form: FormData): Promise<FormState> {
-  const token = await requireToken();
+function watchlistBody(form: FormData) {
   const num = (k: string) => {
     const v = String(form.get(k) ?? "").replace(/[^\d.]/g, "");
     return v === "" ? null : Number(v);
   };
-  const res = await sendAs(token, "POST", "/api/me/watchlists", {
+  return {
     name: form.get("name"),
     make: form.get("make"),
     model: form.get("model"),
@@ -33,10 +32,27 @@ export async function createWatchlist(_prev: FormState, form: FormData): Promise
     includeRepaired: form.get("includeRepaired") === "on",
     destination: form.get("destination"),
     maxLandedAmount: num("maxLandedAmount"),
-  });
-  if (res.status === 201) redirect("/watchlists");
+  };
+}
+
+async function formErrors(res: Response): Promise<FormState> {
   const body = await res.json().catch(() => null);
-  return { errors: body?.errors, message: body?.errors?.[""]?.[0] ?? (res.ok ? undefined : "Couldn't save that. Try again.") };
+  return { errors: body?.errors, message: body?.errors?.[""]?.[0] ?? "Couldn't save that. Try again." };
+}
+
+export async function createWatchlist(_prev: FormState, form: FormData): Promise<FormState> {
+  const res = await sendAs(await requireToken(), "POST", "/api/me/watchlists", watchlistBody(form));
+  if (res.status === 201) redirect("/watchlists");
+  return formErrors(res);
+}
+
+/** Bound to the watchlist's id by the edit page. */
+export async function updateWatchlist(id: string, _prev: FormState, form: FormData): Promise<FormState> {
+  if (!uuid.test(id)) return { message: "That watchlist doesn't exist." };
+  const res = await sendAs(await requireToken(), "PUT", `/api/me/watchlists/${id}`, watchlistBody(form));
+  if (res.status === 204) redirect("/watchlists");
+  if (res.status === 404) return { message: "That watchlist doesn't exist any more." };
+  return formErrors(res);
 }
 
 export async function setWatchlistActive(id: string, isActive: boolean) {
