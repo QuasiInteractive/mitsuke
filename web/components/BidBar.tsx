@@ -6,6 +6,12 @@ import { setFeedback } from "@/app/actions";
 
 type Feedback = "Watching" | "NotForMe" | null;
 
+/**
+ * Whether a partner exporter is signed up to take requests. Until then the bar says so plainly: a request records
+ * interest and Nick follows up by hand. Set NEXT_PUBLIC_BID_PARTNER_LIVE=true once an exporter is live.
+ */
+const PARTNER_LIVE = process.env.NEXT_PUBLIC_BID_PARTNER_LIVE === "true";
+
 type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent" } | { kind: "error"; message: string };
 
 /**
@@ -53,7 +59,7 @@ export function BidBar({
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/85 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:px-6">
           <button onClick={() => setOpen(true)} className="flex-1 rounded-2xl bg-accent px-5 py-3.5 text-base font-semibold shadow-[0_8px_30px_-8px_var(--color-accent)] hover:bg-accent-strong sm:flex-none sm:px-10">
-            I want to bid ›
+            {PARTNER_LIVE ? "I want to bid ›" : "Request a bid ›"}
           </button>
           {signedIn ? (
             <>
@@ -84,16 +90,25 @@ export function BidBar({
             {status.kind === "sent" ? (
               <div className="py-6 text-center">
                 <div className="mx-auto mb-3 grid size-12 place-items-center rounded-full bg-good/15 text-2xl text-good">✓</div>
-                <h2 id="bid-title" className="text-lg font-semibold">Request sent</h2>
-                <p className="mt-2 text-sm text-muted">We&apos;ll pass it to our partner exporter and email you. Nothing is charged and no bid is placed until they confirm with you.</p>
+                <h2 id="bid-title" className="text-lg font-semibold">{PARTNER_LIVE ? "Request sent" : "Request saved"}</h2>
+                <p className="mt-2 text-sm text-muted">
+                  {PARTNER_LIVE
+                    ? "We'll pass it to our partner exporter and email you. Nothing is charged and no bid is placed until they confirm with you."
+                    : "We'll email you if we can connect you with an exporter before bidding closes. Nothing is charged and no bid is placed."}
+                </p>
                 <button onClick={() => setOpen(false)} className="mt-6 rounded-xl border border-line px-5 py-2 text-sm">Close</button>
               </div>
             ) : (
               <form action={submit} className="space-y-4">
                 <div>
-                  <h2 id="bid-title" className="text-lg font-semibold">Bid on this car</h2>
+                  <h2 id="bid-title" className="text-lg font-semibold">{PARTNER_LIVE ? "Bid on this car" : "Request a bid"}</h2>
                   <p className="mt-1 text-sm text-muted">{title}</p>
                 </div>
+                {!PARTNER_LIVE && (
+                  <p className="rounded-xl border border-amber/40 bg-amber/10 p-3 text-sm text-amber">
+                    We&apos;re still signing our exporter partner, so we can&apos;t promise a bid yet. Send your request and we&apos;ll do our best to connect you in time.
+                  </p>
+                )}
                 <label className="block text-sm">
                   <span className="text-muted">Your maximum bid (yen)</span>
                   <input name="maxBid" inputMode="numeric" required placeholder={openingBidJpy ? Math.round(openingBidJpy).toLocaleString("en-AU") : "3,500,000"} className="tabular mt-1 w-full rounded-xl border border-line bg-ink px-3 py-2.5 text-lg outline-none focus:border-accent" />
