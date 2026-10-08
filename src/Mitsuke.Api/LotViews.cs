@@ -173,7 +173,10 @@ public sealed class LotViewBuilder(
             var misses = WatchlistMatcher.Mismatches(watchlist, listing, now, landed);
             if (misses.Count is 0 or > 2 || misses.Contains("too late to bid")) continue;
 
-            var card = (await CardsAsync([new MatchSummary(id, watchlist.Id, watchlist.Name, now)], watchlist.Destination, cancellationToken)).Single();
+            // A light card: the close-match strip shows no deal score or sheet, so it skips those reads.
+            var card = new LotCard(
+                id, Title(listing), listing.MileageKm, listing.Grade?.Raw, listing.PhotoUrls.Count > 0 ? listing.PhotoUrls[0] : null,
+                listing.Price, landed?.Total, null, null, AlertFormatter.AuctionDay(listing), 0, watchlist.Name, now);
             near.Add((misses.Count, landed?.Total.Amount ?? decimal.MaxValue, new CloseMatch(card, misses.Select(Plain).ToList())));
         }
         return near.OrderBy(n => n.Misses).ThenBy(n => n.Landed).Take(12).Select(n => n.Match).ToList();

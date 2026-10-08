@@ -31,6 +31,12 @@ public class ListingIdentityTests
         Assert.Equal(3, ListingIdentity.OnePerCar([a, a with { Key = new ListingKey("t", "2"), MileageKm = 28_000 }, a with { Key = new ListingKey("t", "3"), LotNumber = "58213" }], l => l).Count());
     }
 
+    [Theory]
+    [InlineData("Host=h;Database=d", 4)]
+    [InlineData("Host=h;Database=d;Maximum Pool Size=12", 12)]
+    public void Each_process_takes_only_a_few_database_connections(string connection, int pool) =>
+        Assert.Equal(pool, new Npgsql.NpgsqlConnectionStringBuilder(Mitsuke.Data.ServiceCollectionExtensions.WithPoolCap(connection)).MaxPoolSize);
+
     [Fact]
     public void Lots_without_a_number_are_never_merged() =>
         Assert.Equal(2, ListingIdentity.OnePerCar([Fixtures.Gtr() with { LotNumber = null }, Fixtures.Gtr() with { LotNumber = null, Key = new ListingKey("t", "x") }], l => l).Count());
