@@ -103,7 +103,11 @@ function Row({ item, token }: { item: MyWatchlist; token: string }) {
 
 /** Cars at auction now that nearly fit, and what they miss by: so a quiet watchlist still shows the market. */
 async function CloseMatches({ id, token }: { id: string; token: string }) {
-  const close = await getMyCloseMatches(token, id);
+  // Nice to have, never essential: if it fails, the watchlist still renders.
+  const close = await getMyCloseMatches(token, id).catch(() => null);
+  if (close === null) {
+    return <p className="mt-5 rounded-2xl border border-hairline bg-black/20 px-4 py-3 text-sm text-faint">Couldn&apos;t load what&apos;s at auction right now. Try again in a minute.</p>;
+  }
   if (close.length === 0) {
     return <p className="mt-5 rounded-2xl border border-hairline bg-black/20 px-4 py-3 text-sm text-faint">Nothing close at auction right now. New lots land every day.</p>;
   }

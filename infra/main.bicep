@@ -259,6 +259,8 @@ resource api 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'ASPNETCORE_ENVIRONMENT', value: 'Production' }
         // Send-only use of the details queue, with the shared identity (Storage Queue Data Contributor).
         { name: 'DETAILS_QUEUE_URI', value: '${storage.properties.primaryEndpoints.queue}details' }
+        // A new or edited watchlist is searched straight away through the pipeline's own collect queue.
+        { name: 'COLLECT_QUEUE_URI', value: '${storage.properties.primaryEndpoints.queue}collect' }
       ], push)
     }
   }

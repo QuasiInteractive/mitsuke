@@ -196,6 +196,34 @@ public sealed class MeApiTests(PostgresFixture pg) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, (await _http.SendAsync(As(Bob, HttpMethod.Get, $"/api/me/watchlists/{id}/close-matches"))).StatusCode);
     }
 
+    [Fact]
+    public async Task Saving_editing_or_resuming_a_watchlist_searches_it_straight_away()
+    {
+        var collect = new RecordingCollect();
+        using var factory = _factory.WithWebHostBuilder(web => web.ConfigureServices(s => s.AddSingleton<ICollectRequests>(collect)));
+        using var http = factory.CreateClient();
+
+        var created = await http.SendAsync(As(Alice, HttpMethod.Post, "/api/me/watchlists", R32()));
+        var id = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+        await http.SendAsync(As(Alice, HttpMethod.Put, $"/api/me/watchlists/{id}", R32("Renamed")));
+        await http.SendAsync(As(Alice, HttpMethod.Patch, $"/api/me/watchlists/{id}", new { isActive = false })); // pausing: no search
+        await http.SendAsync(As(Alice, HttpMethod.Patch, $"/api/me/watchlists/{id}", new { isActive = true }));
+        await http.SendAsync(As(Bob, HttpMethod.Put, $"/api/me/watchlists/{id}", R32("Not Bob's")));             // refused: no search
+
+        Assert.Equal([id, id, id], collect.Asked);
+    }
+
+    private sealed class RecordingCollect : ICollectRequests
+    {
+        public List<Guid> Asked { get; } = [];
+
+        public Task RequestAsync(Guid watchlistId, CancellationToken cancellationToken = default)
+        {
+            Asked.Add(watchlistId);
+            return Task.CompletedTask;
+        }
+    }
+
     private static object Device(string endpoint) => new { endpoint, keys = new { p256dh = "BPublicKey", auth = "authSecret" } };
 
     [Fact]

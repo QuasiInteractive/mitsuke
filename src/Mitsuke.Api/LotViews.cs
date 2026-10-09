@@ -79,8 +79,9 @@ public sealed class LotViewBuilder(
         if (listing is null) return null;
 
         var detail = await details.GetAsync(listingId, cancellationToken);
-        // Saved before a newer field existed: show what we have now, and have the pipeline fetch the rest.
-        if (detail is not null && !DetailsRefresher.IsCurrent(detail) && refresh is not null)
+        // Never fetched (a close match, not an alert) or saved before a newer field existed: show what we have now
+        // (the search's one small photo), and have the pipeline fetch the full gallery and sheet for next time.
+        if (!DetailsRefresher.IsCurrent(detail) && refresh is not null)
             await refresh.RequestAsync(listingId, cancellationToken);
         var sheet = await sheets.GetAsync(listingId, cancellationToken);
         var landed = listing.Price is { } price ? await landedCost.EstimateAsync(price, destination, cancellationToken) : null;
@@ -161,14 +162,21 @@ public sealed class LotViewBuilder(
     {
         ArgumentNullException.ThrowIfNull(watchlist);
         var near = new List<(int Misses, decimal Landed, CloseMatch Match)>();
+        var current = new List<(Guid Id, Listing Listing)>();
         foreach (var id in await queries.GetCurrentLotsAsync(watchlist, now, 60, cancellationToken))
+            if (await listings.GetAsync(id, cancellationToken) is { } found) current.Add((id, found));
+
+        // The feed sometimes lists one lot twice: show the car once.
+        foreach (var (id, listing) in ListingIdentity.OnePerCar(current, c => c.Listing))
         {
-            if (await listings.GetAsync(id, cancellationToken) is not { } listing) continue;
             var landed = listing.Price is { } price ? await landedCost.EstimateAsync(price, watchlist.Destination, cancellationToken) : null;
             var misses = WatchlistMatcher.Mismatches(watchlist, listing, now, landed);
             if (misses.Count is 0 or > 2 || misses.Contains("too late to bid")) continue;
 
-            var card = (await CardsAsync([new MatchSummary(id, watchlist.Id, watchlist.Name, now)], watchlist.Destination, cancellationToken)).Single();
+            // A light card: the close-match strip shows no deal score or sheet, so it skips those reads.
+            var card = new LotCard(
+                id, Title(listing), listing.MileageKm, listing.Grade?.Raw, listing.PhotoUrls.Count > 0 ? listing.PhotoUrls[0] : null,
+                listing.Price, landed?.Total, null, null, AlertFormatter.AuctionDay(listing), 0, watchlist.Name, now);
             near.Add((misses.Count, landed?.Total.Amount ?? decimal.MaxValue, new CloseMatch(card, misses.Select(Plain).ToList())));
         }
         return near.OrderBy(n => n.Misses).ThenBy(n => n.Landed).Take(12).Select(n => n.Match).ToList();

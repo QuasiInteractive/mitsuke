@@ -19,6 +19,7 @@ public sealed partial class DetailsRefresher(
     IListingDetailsStore store,
     ILogger<DetailsRefresher> logger)
 {
+    /// <summary>False for details never fetched, as well as for ones saved in an older format.</summary>
     public static bool IsCurrent(ListingDetails? details) => details is { Format: >= ListingDetails.CurrentFormat };
 
     /// <returns>True when fresh details were fetched and saved.</returns>

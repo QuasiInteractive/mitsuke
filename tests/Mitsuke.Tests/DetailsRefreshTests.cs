@@ -74,6 +74,18 @@ public sealed class DetailsRefreshTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_lot_never_fetched_in_full_asks_for_its_gallery_and_sheet()
+    {
+        await using var factory = Api();
+        using var http = factory.CreateClient();
+
+        await http.GetFromJsonAsync<JsonElement>($"/api/lots/{_listingId}"); // no saved details at all (a close match)
+
+        Assert.Equal([_listingId], _requests.Asked);
+        Assert.True(await Refresher().RefreshAsync(_listingId)); // and the pipeline fetches them
+    }
+
+    [Fact]
     public async Task Current_details_ask_for_nothing()
     {
         await Store.SaveAsync(_listingId, Details(ListingDetails.CurrentFormat));
