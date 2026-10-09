@@ -1,3 +1,4 @@
+import { HowToGetIt } from "@/components/HowToGetIt";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -50,6 +51,7 @@ async function Lot({ id }: { id: string }) {
           {lot.sheet?.redFlags.some((f) => f.severity === "High") && <RedFlags lot={lot} />}
           {lot.auctionEndsAt && <AuctionCard lot={lot} />}
           {lot.eligibility && <Eligibility lot={lot} />}
+          {lot.eligibility && <HowToGetIt eligibility={lot.eligibility} builtYear={lot.year} />}
           {(lot.variant || lot.spec.length > 0) && <CarDetails lot={lot} />}
           {lot.sheet && <Condition lot={lot} />}
           {lot.landed && <CostBreakdown lot={lot} />}
