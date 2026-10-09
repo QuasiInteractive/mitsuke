@@ -31,6 +31,13 @@ public sealed record DealScore
     /// <summary>Typical minus this price: positive means cheaper than typical.</summary>
     public Money? BelowTypical { get; init; }
 
+    /// <summary>
+    /// What similar cars opened at, 10th to 90th percentile: the honest "what do these go for" until there are sale
+    /// prices. Opening bids are a floor, so the cars themselves usually sold for more.
+    /// </summary>
+    public Money? OpeningLow { get; init; }
+    public Money? OpeningHigh { get; init; }
+
     /// <summary>Plain-English description of what it was compared with.</summary>
     public required string Basis { get; init; }
 }
@@ -84,8 +91,18 @@ public static class DealScorer
             ComparableCount = comps.Count,
             Typical = new Money(typical, price.Currency),
             BelowTypical = new Money(typical - price.Amount, price.Currency),
+            OpeningLow = new Money(Percentile(comps.Select(c => c.Price.Amount), 0.1m), price.Currency),
+            OpeningHigh = new Money(Percentile(comps.Select(c => c.Price.Amount), 0.9m), price.Currency),
             Basis = basis,
         };
+    }
+
+    /// <summary>Nearest-rank percentile, so the answer is always a real opening bid that was seen.</summary>
+    internal static decimal Percentile(IEnumerable<decimal> values, decimal p)
+    {
+        var sorted = values.OrderBy(v => v).ToList();
+        var rank = (int)Math.Ceiling(p * sorted.Count);
+        return sorted[Math.Clamp(rank - 1, 0, sorted.Count - 1)];
     }
 
     public static string LabelFor(int score) => score switch

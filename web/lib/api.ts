@@ -22,6 +22,8 @@ export type DealScore = {
   comparableCount: number;
   typical: Money | null;
   belowTypical: Money | null;
+  openingLow: Money | null;
+  openingHigh: Money | null;
   basis: string;
 };
 export type SheetFlag = { severity: "Info" | "Medium" | "High"; title: string; detail: string };
