@@ -120,6 +120,9 @@ function PriceCards({ lot }: { lot: LotView }) {
           Opening bid <span className="tabular text-text">{money(lot.openingBid)}</span>
           {lot.auctionHouse && <> · {lot.auctionHouse}</>}
         </p>
+        {lot.openingBid && (
+          <p className="mt-2 text-xs text-faint">Worked out from the opening bid, which is a floor: cars usually sell for more, so budget above this.</p>
+        )}
       </div>
       <div className={`card p-5 ${deal?.score != null && deal.score >= 80 ? "card-alert" : ""}`}>
         <p className="text-sm text-muted">Deal score</p>
@@ -133,6 +136,11 @@ function PriceCards({ lot }: { lot: LotView }) {
             <p className="mt-2 text-xs text-faint">
               vs {deal.comparableCount} cars{deal.confidence === "Low" ? " · low confidence" : ""}
             </p>
+            {deal.openingLow && deal.openingHigh && (
+              <p className="mt-2 text-xs text-muted">
+                Similar cars opened at <span className="tabular text-text">{money(deal.openingLow)}–{money(deal.openingHigh).replace(/^[^\d]+/, "")}</span>
+              </p>
+            )}
           </>
         ) : (
           <p className="mt-2 text-sm text-muted">{deal?.label ?? "Not scored"}</p>
@@ -344,6 +352,11 @@ function History({ lot }: { lot: LotView }) {
       <h2 className="text-lg font-semibold">History</h2>
       <p className="mt-1 text-sm text-muted">
         Seen at auction {lot.relists.length} time{lot.relists.length === 1 ? "" : "s"} before{first && <>, since {shortDate(first)}</>}.
+        {lot.relists.length >= 2 && (
+          <span className="block text-faint">
+            A car that keeps coming back usually has a reserve above its opening bid: expect to pay more than it opens at.
+          </span>
+        )}
       </p>
       {changes.length > 0 && <p className="mt-1 text-sm text-amber">Changed between auctions: {changes.join(", ")}.</p>}
       <div className="mt-3">

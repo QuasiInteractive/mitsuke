@@ -4,6 +4,18 @@ using Mitsuke.Sources.TheCarApi;
 
 namespace Mitsuke.Tests;
 
+public class OpeningRangeTests
+{
+    [Fact]
+    public void The_range_is_the_10th_to_90th_percentile_of_real_opening_bids()
+    {
+        decimal[] bids = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+        Assert.Equal(1m, DealScorer.Percentile(bids, 0.1m));
+        Assert.Equal(9m, DealScorer.Percentile(bids, 0.9m));
+        Assert.Equal(4_000_000m, DealScorer.Percentile([4_000_000m], 0.9m)); // one value is its own range
+    }
+}
+
 public class DealScorerTests
 {
     private static Listing Subject(decimal yen = 3_000_000m, int km = 87_000, string grade = "4", int year = 1991) =>
