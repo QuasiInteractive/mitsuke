@@ -3,10 +3,12 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { UserMenu } from "@/components/UserMenu";
 import { HankoMark } from "@/components/Brand";
-import { Inter, Noto_Sans_JP } from "next/font/google";
+import { Exo_2, Inter, Noto_Sans_JP } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"], display: "swap" });
+// Kensa-ya's display face: the family resemblance between the two products.
+const exo = Exo_2({ variable: "--font-exo", subsets: ["latin"], weight: ["700", "800", "900"], style: ["italic", "normal"], display: "swap" });
 const notoJp = Noto_Sans_JP({ variable: "--font-noto-jp", subsets: ["latin"], weight: ["500", "700"], display: "swap" });
 
 export const metadata: Metadata = {
@@ -16,21 +18,19 @@ export const metadata: Metadata = {
   appleWebApp: { capable: true, title: "Mitsuke", statusBarStyle: "black-translucent" },
 };
 
-export const viewport: Viewport = { themeColor: "#0b0b0d" };
+export const viewport: Viewport = { themeColor: "#07080d" };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en-AU" className={`${inter.variable} ${notoJp.variable}`}>
+    <html lang="en-AU" className={`${inter.variable} ${exo.variable} ${notoJp.variable}`}>
       <body className="min-h-dvh">
         {/* A glass bar that stays put: the brand on the left, the two places people go on the right. */}
         <header className="sticky top-0 z-30 border-b border-hairline bg-ink/70 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <Link href="/" className="flex items-center gap-3 leading-none">
-              <HankoMark />
+            <Link href="/" className="flex items-center gap-3 leading-none" aria-label="Mitsuke home">
+              <span className="hanko px-1.5 py-1 text-sm whitespace-nowrap">見つけ</span>
               <span className="flex flex-col">
-                <span className="text-xl font-bold tracking-tight whitespace-nowrap">
-                  Mitsuke <span className="font-jp text-accent">見つけ</span>
-                </span>
+                <span className="font-display text-xl font-black tracking-wide whitespace-nowrap italic">MITSUKE</span>
                 <span className="mt-1 hidden text-[10px] font-medium tracking-[0.25em] whitespace-nowrap text-faint sm:block">JAPANESE CARS — AUSTRALIAN ROADS</span>
               </span>
             </Link>

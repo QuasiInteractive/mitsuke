@@ -69,25 +69,47 @@ async function Landing() {
   const examples = await getMatches();
   const hero = examples.find((c) => c.photo) ?? null;
   return (
-    <div className="space-y-20 pt-10">
-      <section className="grid items-center gap-10 lg:grid-cols-[1.05fr_1fr]">
-        <div>
-          <p className="label text-accent">Japanese auctions, watched for you</p>
-          <h1 className="display mt-4 max-w-xl">
-            Your wishlist car, <span className="text-accent">found</span> at Japanese auction.
-          </h1>
-          <p className="mt-5 max-w-lg text-lg text-muted">
-            Tell Mitsuke the car you want and what you can spend on the ground. It watches the auctions around the clock and tells you the moment one fits,
-            with the landed cost and a plain-English read of the auction sheet.
-          </p>
-          <div className="mt-8 flex flex-wrap items-center gap-4">
-            <Link href="/login" className="btn-primary px-7 py-4 text-base">
-              Start watching, free <ArrowRight className="size-4" aria-hidden />
-            </Link>
-            <span className="text-sm text-faint">No password. Sign in with your email.</span>
+    <div className="space-y-20">
+      {/* The hero, Kensa-ya style: a real car blurred behind everything, the night-meet grid, a loud italic headline. */}
+      <section className="relative isolate left-1/2 w-screen -translate-x-1/2 overflow-hidden pt-16 pb-14 lg:pt-20">
+        {hero?.photo && (
+          // eslint-disable-next-line @next/next/no-img-element -- remote auction photo, decorative backdrop
+          <img src={hero.photo} alt="" aria-hidden className="absolute inset-0 -z-20 size-full scale-110 object-cover opacity-35 blur-2xl" />
+        )}
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-ink/40 via-ink/70 to-ink" />
+        <div className="grid-bg absolute inset-0 -z-10" />
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.1fr_1fr]">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full border border-accent/50 bg-accent/10 px-4 py-1.5 text-[11px] font-semibold tracking-[0.2em] text-accent uppercase">
+              <span className="size-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--color-accent)]" /> Japanese auction watcher
+            </span>
+            <h1 className="display-xl mt-6">
+              Find it
+              <br />
+              before
+              <br />
+              <span className="glow-red">anyone</span>
+              <br />
+              else.
+            </h1>
+            <p className="mt-6 max-w-lg text-lg text-muted">
+              Tell Mitsuke the car you want and what you can spend on the ground. It watches every Japanese auction around the clock and pings your phone the
+              moment one fits, with the landed cost and whether you can import it.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link href="/login" className="btn-primary px-7 py-4 text-base">
+                Start watching, free <ArrowRight className="size-4" aria-hidden />
+              </Link>
+              <Link href="/watchlists/new" className="btn-ghost px-6 py-4 text-base text-text">Build a watchlist</Link>
+            </div>
+            <dl className="mt-10 grid max-w-lg grid-cols-3 gap-6 border-t border-hairline pt-6 text-sm">
+              <div><dt className="text-faint">Checks</dt><dd className="figure mt-1 text-sm sm:text-lg">Every 10 min</dd></div>
+              <div><dt className="text-faint">Watches</dt><dd className="figure mt-1 text-sm sm:text-lg">USS, TAA +</dd></div>
+              <div><dt className="text-faint">Lands in</dt><dd className="figure mt-1 text-sm sm:text-lg">AU · NZ · US</dd></div>
+            </dl>
           </div>
+          {hero && <HeroCard card={hero} />}
         </div>
-        {hero && <HeroCard card={hero} />}
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -106,7 +128,7 @@ async function Landing() {
         <div className="flex items-end justify-between gap-4">
           <div>
             <p className="label">Live from the auctions</p>
-            <h2 className="mt-2 text-2xl font-bold tracking-tight">What Mitsuke found this week</h2>
+            <h2 className="display mt-2 text-3xl">Found this week</h2>
           </div>
           <Watchlists />
         </div>
@@ -123,7 +145,7 @@ async function Landing() {
 /** The landing hero: a real lot, framed like a magazine cover. */
 function HeroCard({ card: c }: { card: LotCard }) {
   return (
-    <Link href={`/lot/${c.id}`} className="card group relative block overflow-hidden">
+    <Link href={`/lot/${c.id}`} className="card underglow group relative block overflow-hidden border-accent/30">
       {/* eslint-disable-next-line @next/next/no-img-element -- remote auction photos via signed URLs */}
       <img src={c.photo!} alt={c.title} className="aspect-[4/3] w-full object-cover transition duration-500 group-hover:scale-[1.02]" />
       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" />
@@ -133,7 +155,7 @@ function HeroCard({ card: c }: { card: LotCard }) {
         <div className="mt-3 flex items-end justify-between gap-4">
           <div>
             <p className="text-xs text-white/60">Est. landed</p>
-            <p className="tabular text-3xl font-bold">{money(c.landedTotal)}</p>
+            <p className="figure text-4xl">{money(c.landedTotal)}</p>
           </div>
           {c.dealScore != null && <DealBadge score={c.dealScore} label={c.dealLabel} />}
         </div>
@@ -205,7 +227,7 @@ function Card({ card: c }: { card: LotCard }) {
         <div className="mt-4 flex items-end justify-between border-t border-hairline pt-4">
           <div>
             <p className="label">Est. landed</p>
-            <p className="tabular mt-1 text-2xl font-bold">{money(c.landedTotal)}</p>
+            <p className="figure mt-1 text-2xl">{money(c.landedTotal)}</p>
           </div>
           <p className="tabular text-sm text-muted">{money(c.openingBid, { compact: true })} opening</p>
         </div>

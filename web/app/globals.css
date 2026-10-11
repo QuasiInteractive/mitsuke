@@ -1,26 +1,28 @@
 @import "tailwindcss";
 
 /*
- * Mitsuke's design system (docs/design.md; north star: the R32 auction screen).
- * Near-black charcoal, one crimson accent (a hanko seal), crisp white type, muted greys.
- * Calm, editorial, premium: fine 1px borders, large radii, restrained glass, no loud gradients.
+ * Mitsuke's design system: Kensa-ya's sibling. Same family (Y2K tuner night meet x Japanese auction house):
+ * near-black blue nights, Exo 2 heavy italic display type, a faint grid, underglow, a hanko stamp.
+ * Mitsuke's own colour is neon crimson (Kensa-ya's is cyan), with amber and cyan as supporting accents.
  */
 @theme {
-  --color-ink: #0b0b0d;
-  --color-surface: #141418;
-  --color-raised: #1b1b21;
-  --color-line: #2a2a33;
-  --color-hairline: rgb(255 255 255 / 0.07);
-  --color-text: #f4f4f5;
-  --color-muted: #a1a1aa;
-  --color-faint: #71717a;
-  --color-accent: #d7263d;
-  --color-accent-strong: #b81d31;
-  --color-amber: #f5a524;
-  --color-orange: #f97316;
-  --color-good: #22c55e;
+  --color-ink: #07080d;
+  --color-surface: #0d0f17;
+  --color-raised: #171a2b;
+  --color-line: #262b45;
+  --color-hairline: rgb(160 170 230 / 0.10);
+  --color-text: #f2f4ff;
+  --color-muted: #b6bcd9;
+  --color-faint: #7b82a8;
+  --color-accent: #ff2d55;
+  --color-accent-strong: #e0173f;
+  --color-amber: #ffb020;
+  --color-orange: #ff7a1a;
+  --color-good: #35e07a;
+  --color-cyan: #19e6ff;
 
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-exo), var(--font-inter), sans-serif;
   --font-jp: var(--font-noto-jp), "Hiragino Sans", "Yu Gothic", sans-serif;
 }
 
@@ -29,9 +31,11 @@ html {
 }
 
 body {
+  overflow-x: clip; /* full-bleed sections use 100vw */
   /* A faint vignette, not a gradient you'd notice: the page reads as one dark surface with depth. */
   background:
-    radial-gradient(1200px 600px at 50% -200px, rgb(255 255 255 / 0.035), transparent 70%),
+    radial-gradient(1000px 520px at 85% -120px, rgb(255 45 85 / 0.10), transparent 70%),
+    radial-gradient(900px 500px at 0% 0%, rgb(25 230 255 / 0.05), transparent 70%),
     var(--color-ink);
   background-attachment: fixed;
   color: var(--color-text);
@@ -42,7 +46,7 @@ body {
 @layer components {
   /* The surface everything sits on. In the components layer so utilities (border-accent, bg-accent/10) win. */
   .card {
-    background-image: linear-gradient(180deg, rgb(27 27 33 / 0.86), rgb(18 18 22 / 0.86));
+    background-image: linear-gradient(180deg, rgb(23 26 43 / 0.82), rgb(13 15 23 / 0.88));
     border: 1px solid var(--color-hairline);
     border-radius: 1.5rem;
     box-shadow:
@@ -53,8 +57,9 @@ body {
 
   /* Tinted variant for warnings and the hero deal score. */
   .card-alert {
-    background-image: linear-gradient(180deg, rgb(215 38 61 / 0.16), rgb(215 38 61 / 0.07));
-    border-color: rgb(215 38 61 / 0.5);
+    background-image: linear-gradient(180deg, rgb(255 45 85 / 0.18), rgb(255 45 85 / 0.06));
+    border-color: rgb(255 45 85 / 0.55);
+    box-shadow: 0 0 40px -12px rgb(255 45 85 / 0.45), inset 0 1px 0 rgb(255 255 255 / 0.05);
   }
 
   /* Small, understated label above a value. */
@@ -223,13 +228,88 @@ body {
     color: var(--color-text);
   }
 
-  /* Editorial page heading: confident, tight tracking. */
+  /* The family headline: Exo 2, heavy italic capitals, like Kensa-ya. */
   .display {
-    font-size: clamp(2rem, 5vw, 3rem);
-    font-weight: 700;
-    line-height: 1.05;
-    letter-spacing: -0.03em;
+    font-family: var(--font-display);
+    font-size: clamp(2.2rem, 5.5vw, 3.6rem);
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    line-height: 0.98;
+    letter-spacing: -0.01em;
   }
+  .display-xl {
+    font-family: var(--font-display);
+    font-size: clamp(3rem, 8vw, 6rem);
+    font-weight: 900;
+    font-style: italic;
+    text-transform: uppercase;
+    line-height: 0.92;
+    letter-spacing: -0.015em;
+  }
+  /* Numbers that matter (prices, scores) in the display face. */
+  .figure {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-style: italic;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* Neon crimson glow on a key word, as Kensa-ya does in cyan. */
+.glow-red {
+  color: var(--color-accent);
+  text-shadow: 0 0 22px rgb(255 45 85 / 0.6), 0 0 2px rgb(255 45 85 / 0.95);
+}
+.glow-cyan {
+  color: var(--color-cyan);
+  text-shadow: 0 0 18px rgb(25 230 255 / 0.55), 0 0 2px rgb(25 230 255 / 0.9);
+}
+
+/* Chrome text, for the occasional big word. */
+.chrome {
+  background: linear-gradient(180deg, #ffffff 0%, #dfe6ff 38%, #7f8bb8 50%, #e8ecff 62%, #ffffff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* The night-meet grid behind heroes, fading out downwards. */
+.grid-bg {
+  background-image:
+    linear-gradient(rgb(255 45 85 / 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 45 85 / 0.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: linear-gradient(180deg, rgb(0 0 0 / 0.9), transparent 90%);
+}
+
+/* A neon strip of light under a hero card or button. */
+.underglow {
+  position: relative;
+}
+.underglow::after {
+  content: "";
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: -14px;
+  height: 28px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgb(255 45 85 / 0.55), rgb(255 45 85 / 0) 70%);
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+/* The hanko stamp: a slightly rotated seal, as on Kensa-ya. */
+.hanko {
+  font-family: var(--font-jp);
+  font-weight: 700;
+  color: var(--color-accent);
+  border: 3px solid var(--color-accent);
+  border-radius: 6px;
+  transform: rotate(-6deg);
+  line-height: 1;
 }
 
 .tabular {

@@ -1,5 +1,5 @@
 import { HowToGetIt } from "@/components/HowToGetIt";
-import { FujiArt, ScoreRing } from "@/components/Brand";
+import { ScoreRing } from "@/components/Brand";
 import {
   CalendarDays, Gauge, Star, Cog, CircleDot, Wrench, Palette, Clock, ClipboardList, Calculator, LineChart, CarFront,
   Gavel, Ship, Receipt, FileCheck2, Coins, ShieldCheck, TriangleAlert, type LucideIcon,
@@ -107,7 +107,7 @@ function Header({ lot }: { lot: LotView }) {
   ];
   return (
     <div>
-      <h1 className="text-3xl leading-tight font-bold tracking-tight sm:text-4xl">{lot.title}</h1>
+      <h1 className="font-display text-3xl leading-tight font-black tracking-tight italic sm:text-4xl">{lot.title}</h1>
       {lot.variant && (
         <p className="mt-1 text-lg font-semibold text-accent" title={lot.variant.reason}>
           {lot.variant.certain ? "" : "Likely "}
@@ -131,9 +131,8 @@ function PriceCards({ lot }: { lot: LotView }) {
   return (
     <div className="grid gap-3 sm:grid-cols-[1.45fr_1fr]">
       <div className="card relative overflow-hidden p-5">
-        <FujiArt className="absolute top-4 right-4 w-32 opacity-35" />
         <p className="relative text-sm text-muted">Est. landed in {lot.landed?.destination ?? "AU"}</p>
-        <p className="tabular relative mt-1 text-4xl font-bold tracking-tight xl:text-[2.75rem]">{money(lot.landed?.total)}</p>
+        <p className="figure relative mt-1 text-4xl xl:text-5xl">{money(lot.landed?.total)}</p>
         {lot.landed && (
           <p className="tabular mt-1 text-xs text-faint">
             range {money(lot.landed.low)}–{money(lot.landed.high).replace(/^[A-Z$]+/, "")}
@@ -153,7 +152,7 @@ function PriceCards({ lot }: { lot: LotView }) {
           <>
             <div className="mt-2 flex items-center gap-3">
               <ScoreRing score={deal.score} />
-              <p className="tabular text-4xl font-bold">
+              <p className="figure text-5xl">
                 {deal.score}
                 <span className="text-lg text-muted">/100</span>
               </p>
