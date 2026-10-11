@@ -122,7 +122,8 @@ public sealed class PostgresMarketStoreTests(PostgresFixture pg) : IAsyncLifetim
         await AddAsync("tired", 2_000_000, daysAgo: 3, km: 200_000);
         await AddAsync("old-news", 2_000_000, daysAgo: 40);
 
-        var found = await _market.ScanAsync(Now.AddDays(-10), Now, 10);
+        // A month start in Japan time, as the home page passes it: must not trip Npgsql's UTC-only rule.
+        var found = await _market.ScanAsync(Now.AddDays(-10).ToOffset(TimeSpan.FromHours(9)), Now, 10);
 
         var pick = Assert.Single(found);
         Assert.Equal(steal, pick.ListingId);

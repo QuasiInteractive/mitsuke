@@ -39,7 +39,8 @@ public sealed class PostgresMarketStore(NpgsqlDataSource db) : IMarketStore
               and (@yearTo::int is null or l.year <= @yearTo)
               and l.first_seen_at >= @since
             order by {CarKey}, date_trunc('week', l.first_seen_at at time zone 'Asia/Tokyo'), l.last_seen_at desc
-            """, new { make = scope.Make, model = scope.Model, codes = PgArray.Of(codes), yearFrom = scope.YearFrom, yearTo = scope.YearTo, since, now });
+            """, new { make = scope.Make, model = scope.Model, codes = PgArray.Of(codes), yearFrom = scope.YearFrom, yearTo = scope.YearTo,
+                since = since.ToUniversalTime(), now = now.ToUniversalTime() }); // Npgsql writes timestamptz from UTC only
         return rows.Select(r => new MarketSample(DateOnly.FromDateTime(r.Seen), r.Amount, r.OnNow)).ToList();
     }
 
@@ -74,7 +75,7 @@ public sealed class PostgresMarketStore(NpgsqlDataSource db) : IMarketStore
               and c.amount <= t.typical * 0.85 and c.amount >= t.typical * 0.25
             order by c.amount / t.typical, c.first_seen_at desc
             limit @limit
-            """, new { since, now, limit });
+            """, new { since = since.ToUniversalTime(), now = now.ToUniversalTime(), limit });
         return rows.Select(r => new MarketCandidate(r.ListingId, r.Grp, r.Amount, r.Typical, r.Cars,
             new DateTimeOffset(DateTime.SpecifyKind(r.FirstSeenAt, DateTimeKind.Utc)))).ToList();
     }
