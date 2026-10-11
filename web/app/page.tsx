@@ -3,6 +3,7 @@ import Link from "next/link";
 import { BellRing, Calculator, FileSearch, ShieldCheck, ArrowRight, Gauge, CalendarDays, TriangleAlert } from "lucide-react";
 import { getMatches, getMyMatches, getMyWatchlists, getWatchlists, type LotCard } from "@/lib/api";
 import { getUser } from "@/lib/supabase/server";
+import { HeroVideo } from "@/components/HeroVideo";
 import { day, km, money } from "@/lib/format";
 
 export default function Home() {
@@ -72,12 +73,8 @@ async function Landing() {
     <div className="space-y-20">
       {/* The hero, Kensa-ya style: a real car blurred behind everything, the night-meet grid, a loud italic headline. */}
       <section className="relative isolate left-1/2 w-screen -translate-x-1/2 overflow-hidden pt-16 pb-14 lg:pt-20">
-        {hero?.photo && (
-          // eslint-disable-next-line @next/next/no-img-element -- remote auction photo, decorative backdrop
-          <img src={hero.photo} alt="" aria-hidden className="absolute inset-0 -z-20 size-full scale-110 object-cover opacity-35 blur-2xl" />
-        )}
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-ink/40 via-ink/70 to-ink" />
-        <div className="grid-bg absolute inset-0 -z-10" />
+        <HeroVideo />
+        <div className="grid-bg absolute inset-0 -z-10 opacity-60" />
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-[1.1fr_1fr]">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-accent/50 bg-accent/10 px-4 py-1.5 text-[11px] font-semibold tracking-[0.2em] text-accent uppercase">

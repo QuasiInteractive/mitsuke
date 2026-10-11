@@ -257,6 +257,17 @@ body {
   }
 }
 
+/* Background footage: blurred, slightly saturated, scaled so the blurred edges never show. */
+.hero-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(7px) saturate(1.25) brightness(0.9);
+  transform: scale(1.1);
+}
+
 /* Neon crimson glow on a key word, as Kensa-ya does in cyan. */
 .glow-red {
   color: var(--color-accent);
