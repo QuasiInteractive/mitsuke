@@ -28,7 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <Link href="/" className="flex items-center gap-3 leading-none">
               <HankoMark />
               <span className="flex flex-col">
-                <span className="text-xl font-bold tracking-tight">
+                <span className="text-xl font-bold tracking-tight whitespace-nowrap">
                   Mitsuke <span className="font-jp text-accent">見つけ</span>
                 </span>
                 <span className="mt-1 hidden text-[10px] font-medium tracking-[0.25em] whitespace-nowrap text-faint sm:block">JAPANESE CARS — AUSTRALIAN ROADS</span>

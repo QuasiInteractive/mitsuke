@@ -37,8 +37,8 @@ async function Lot({ id }: { id: string }) {
 
   return (
     <>
-      <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr] lg:items-start">
-        <div className="space-y-4 lg:sticky lg:top-4">
+      <div className="grid gap-8 pt-6 lg:grid-cols-[1.15fr_1fr] lg:items-start lg:pt-8">
+        <div className="min-w-0 space-y-4 lg:sticky lg:top-24">
           <Gallery photos={lot.photos} title={lot.title} />
           {lot.sheetImage && (
             <a href={lot.sheetImage} target="_blank" rel="noreferrer" className="card flex items-center justify-between px-4 py-3 text-sm hover:border-accent">
@@ -50,7 +50,7 @@ async function Lot({ id }: { id: string }) {
           )}
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Header lot={lot} />
           <PriceCards lot={lot} />
           {lot.sheet?.redFlags.some((f) => f.severity === "High") && <RedFlags lot={lot} />}
@@ -72,6 +72,7 @@ async function Lot({ id }: { id: string }) {
         openingBidJpy={lot.openingBid?.currency === "JPY" ? lot.openingBid.amount : null}
         signedIn={user !== null}
         feedback={feedback?.kind ?? null}
+        auctionEndsAt={lot.auctionEndsAt}
       />
     </>
   );
@@ -128,11 +129,11 @@ function Header({ lot }: { lot: LotView }) {
 function PriceCards({ lot }: { lot: LotView }) {
   const deal = lot.deal;
   return (
-    <div className="grid grid-cols-[1.5fr_1fr] gap-3">
+    <div className="grid gap-3 sm:grid-cols-[1.45fr_1fr]">
       <div className="card relative overflow-hidden p-5">
-        <FujiArt className="absolute -right-6 -bottom-2 w-56 opacity-60" />
+        <FujiArt className="absolute top-4 right-4 w-32 opacity-35" />
         <p className="relative text-sm text-muted">Est. landed in {lot.landed?.destination ?? "AU"}</p>
-        <p className="tabular relative mt-1 text-5xl font-bold tracking-tight">{money(lot.landed?.total)}</p>
+        <p className="tabular relative mt-1 text-4xl font-bold tracking-tight xl:text-[2.75rem]">{money(lot.landed?.total)}</p>
         {lot.landed && (
           <p className="tabular mt-1 text-xs text-faint">
             range {money(lot.landed.low)}–{money(lot.landed.high).replace(/^[A-Z$]+/, "")}
@@ -143,7 +144,7 @@ function PriceCards({ lot }: { lot: LotView }) {
           {lot.auctionHouse && <> · {lot.auctionHouse}</>}
         </p>
         {lot.openingBid && (
-          <p className="relative mt-2 max-w-[18rem] text-xs text-faint">Worked out from the opening bid, which is a floor: cars usually sell for more, so budget above this.</p>
+          <p className="relative mt-3 border-t border-hairline pt-3 text-xs text-faint">Based on the opening bid, which is a floor: cars usually sell for more.</p>
         )}
       </div>
       <div className={`card p-5 ${deal?.score != null && deal.score >= 80 ? "card-alert" : ""}`}>
@@ -157,7 +158,7 @@ function PriceCards({ lot }: { lot: LotView }) {
                 <span className="text-lg text-muted">/100</span>
               </p>
             </div>
-            <p className="mt-2 font-semibold text-accent">{deal.label}</p>
+            <p className={`mt-2 font-semibold ${deal.score >= 70 ? "text-accent" : deal.score >= 40 ? "text-text" : "text-amber"}`}>{deal.label}</p>
             <p className="mt-2 text-xs text-faint">
               vs {deal.comparableCount} cars{deal.confidence === "Low" ? " · low confidence" : ""}
             </p>
@@ -281,6 +282,17 @@ const VERDICT = {
   No: { mark: "✕", tone: "text-accent border-accent/40 bg-accent/10" },
 } as const;
 
+function Pathway({ p }: { p: { name: string; verdict: "Yes" | "Maybe" | "No"; reason: string } }) {
+  return (
+    <li className="flex gap-3 text-sm">
+      <span className={`mt-0.5 shrink-0 font-bold ${VERDICT[p.verdict].tone.split(" ")[0]}`}>{VERDICT[p.verdict].mark}</span>
+      <span>
+        <span className="font-medium">{p.name}.</span> <span className="text-muted">{p.reason}</span>
+      </span>
+    </li>
+  );
+}
+
 function Eligibility({ lot }: { lot: LotView }) {
   const e = lot.eligibility!;
   const v = VERDICT[e.verdict];
@@ -293,24 +305,33 @@ function Eligibility({ lot }: { lot: LotView }) {
           <h2 className="text-lg font-semibold">{e.headline}</h2>
         </div>
       </div>
+      {/* When one route clearly works, show it; the rest fold away. Otherwise every route matters. */}
       <ul className="mt-4 space-y-3">
-        {e.pathways.map((p) => (
-          <li key={p.name} className="flex gap-3 text-sm">
-            <span className={`mt-0.5 shrink-0 font-bold ${VERDICT[p.verdict].tone.split(" ")[0]}`}>{VERDICT[p.verdict].mark}</span>
-            <span>
-              <span className="font-medium">{p.name}.</span> <span className="text-muted">{p.reason}</span>
-            </span>
-          </li>
-        ))}
+        {(e.verdict === "Yes" ? e.pathways.filter((p) => p.verdict === "Yes") : e.pathways).map((p) => <Pathway key={p.name} p={p} />)}
       </ul>
+      {e.verdict === "Yes" && e.pathways.some((p) => p.verdict !== "Yes") && (
+        <details className="group mt-3">
+          <summary className="cursor-pointer list-none text-sm text-muted hover:text-text">
+            Other pathways ({e.pathways.filter((p) => p.verdict !== "Yes").length}) <span className="inline-block transition group-open:rotate-180">⌄</span>
+          </summary>
+          <ul className="mt-3 space-y-3">
+            {e.pathways.filter((p) => p.verdict !== "Yes").map((p) => <Pathway key={p.name} p={p} />)}
+          </ul>
+        </details>
+      )}
       {e.links.length > 0 && (
-        <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          {e.links.map((l) => (
-            <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-              {l.label} ↗
-            </a>
-          ))}
-        </p>
+        <details className="group mt-4 border-t border-hairline pt-3">
+          <summary className="cursor-pointer list-none text-sm text-muted hover:text-text">
+            Official links ({e.links.length}) <span className="inline-block transition group-open:rotate-180">⌄</span>
+          </summary>
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {e.links.map((l) => (
+              <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                {l.label} ↗
+              </a>
+            ))}
+          </p>
+        </details>
       )}
       <p className="mt-3 text-xs text-faint">Rules last checked {e.rulesCheckedOn}. Confirm with your exporter or a compliance workshop before bidding.</p>
     </section>

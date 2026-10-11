@@ -6,7 +6,7 @@ export async function UserMenu() {
   const user = await getUser();
   if (!user) {
     return (
-      <Link href="/login" className="btn-primary rounded-full px-4 py-1.5 text-sm">
+      <Link href="/login" className="btn-primary rounded-full px-4 py-2 text-sm whitespace-nowrap">
         Sign in
       </Link>
     );
