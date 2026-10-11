@@ -30,7 +30,7 @@ export function MarketMeter({ meter }: { meter: Meter }) {
           <span className="text-xs text-faint">{meter.name} · since {shortDate(meter.since)}</span>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
+        <div className="mt-4">
           <div>
             {s && (
               <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold tracking-[0.14em] uppercase ${s.ring} ${s.tone}`}>
@@ -48,9 +48,9 @@ export function MarketMeter({ meter }: { meter: Meter }) {
               <p className="figure mt-2 text-4xl">{yen(meter.typical)}</p>
             )}
           </div>
-          <dl className="grid grid-cols-3 gap-5 text-right text-xs">
+          <dl className="mt-4 grid grid-cols-3 divide-x divide-hairline rounded-2xl border border-hairline bg-black/25 py-3 text-xs [&>div]:px-4">
             <Stat label="Typical" value={yen(meter.typical)} />
-            <Stat label="At auction" value={String(meter.onAuctionNow)} />
+            <Stat label="Live now" value={String(meter.onAuctionNow)} />
             <Stat label="Trend" value={<Trend percent={meter.trendPercent} />} />
           </dl>
         </div>
@@ -94,12 +94,12 @@ function Gauge({ meter }: { meter: Meter }) {
   const lo = Math.min(...values);
   const hi = Math.max(...values);
   const span = hi - lo || 1;
-  const x = (v: number) => 12 + ((v - lo) / span) * 576;
+  const x = (v: number) => 14 + ((v - lo) / span) * 332;
   const glow = meter.signal ? SIGNAL[meter.signal].glow : "var(--color-accent)";
 
   return (
     <figure className="mt-5">
-      <svg viewBox="0 0 600 74" className="w-full" role="img" aria-label={`Opening bids from ${yen(lo)} to ${yen(hi)}, typical ${yen(meter.typical)}`}>
+      <svg viewBox="0 0 360 84" className="w-full" role="img" aria-label={`Opening bids from ${yen(lo)} to ${yen(hi)}, typical ${yen(meter.typical)}`}>
         <defs>
           <linearGradient id="mm-track" x1="0" x2="1">
             <stop offset="0" stopColor="var(--color-good)" stopOpacity="0.55" />
@@ -107,18 +107,18 @@ function Gauge({ meter }: { meter: Meter }) {
             <stop offset="1" stopColor="var(--color-amber)" stopOpacity="0.55" />
           </linearGradient>
         </defs>
-        <rect x="12" y="34" width="576" height="6" rx="3" fill="url(#mm-track)" opacity="0.35" />
-        <rect x={x(meter.low)} y="30" width={Math.max(4, x(meter.high) - x(meter.low))} height="14" rx="7" fill="rgb(255 255 255 / 0.06)" stroke="rgb(255 255 255 / 0.14)" />
+        <rect x="14" y="38" width="332" height="8" rx="4" fill="url(#mm-track)" opacity="0.45" />
+        <rect x={x(meter.low)} y="32" width={Math.max(4, x(meter.high) - x(meter.low))} height="20" rx="10" fill="rgb(255 255 255 / 0.06)" stroke="rgb(255 255 255 / 0.16)" />
         {meter.spread.map((v, i) => (
-          <circle key={i} cx={x(v)} cy={37 + ((i % 3) - 1) * 4} r="2.2" fill="rgb(242 244 255 / 0.45)" />
+          <circle key={i} cx={x(v)} cy={42 + ((i % 3) - 1) * 5} r="2" fill="rgb(242 244 255 / 0.5)" />
         ))}
-        <line x1={x(meter.typical)} x2={x(meter.typical)} y1="22" y2="52" stroke="var(--color-text)" strokeWidth="2" />
-        <text x={x(meter.typical)} y="64" textAnchor="middle" className="fill-[var(--color-muted)] text-[11px]">typical {yen(meter.typical)}</text>
+        <line x1={x(meter.typical)} x2={x(meter.typical)} y1="26" y2="58" stroke="var(--color-text)" strokeWidth="2" />
+        <text x={Math.min(320, Math.max(40, x(meter.typical)))} y="74" textAnchor="middle" fontSize="11" fill="var(--color-muted)">typical {yen(meter.typical)}</text>
         {meter.this != null && (
           <g>
-            <circle cx={x(meter.this)} cy="37" r="11" fill={glow} opacity="0.25" />
-            <circle cx={x(meter.this)} cy="37" r="6.5" fill={glow} stroke="#07080d" strokeWidth="2" />
-            <text x={Math.min(560, Math.max(40, x(meter.this)))} y="14" textAnchor="middle" className="text-[12px] font-bold" fill={glow}>
+            <circle cx={x(meter.this)} cy="42" r="12" fill={glow} opacity="0.25" />
+            <circle cx={x(meter.this)} cy="42" r="7" fill={glow} stroke="#07080d" strokeWidth="2" />
+            <text x={Math.min(310, Math.max(50, x(meter.this)))} y="16" textAnchor="middle" fontSize="12" fontWeight="700" fill={glow}>
               this car {yen(meter.this)}
             </text>
           </g>
@@ -143,14 +143,14 @@ function Weeks({ meter }: { meter: Meter }) {
       </p>
     );
   }
-  const w = 600;
-  const h = 110;
+  const w = 360;
+  const h = 130;
   const maxCars = Math.max(...weeks.map((k) => k.cars));
   const prices = weeks.map((k) => k.typical);
   const [pMin, pMax] = [Math.min(...prices), Math.max(...prices)];
   const pSpan = pMax - pMin || pMax * 0.1 || 1;
-  const step = (w - 40) / weeks.length;
-  const cx = (i: number) => 20 + step * (i + 0.5);
+  const step = (w - 20) / weeks.length;
+  const cx = (i: number) => 10 + step * (i + 0.5);
   const cy = (v: number) => 14 + (1 - (v - pMin) / pSpan) * (h - 46);
   const line = weeks.map((k, i) => `${cx(i)},${cy(k.typical)}`).join(" ");
 
@@ -164,17 +164,17 @@ function Weeks({ meter }: { meter: Meter }) {
           </linearGradient>
         </defs>
         {weeks.map((k, i) => {
-          const bh = Math.max(3, (k.cars / maxCars) * 26);
+          const bh = Math.max(4, (k.cars / maxCars) * 30);
           return <rect key={k.weekOf} x={cx(i) - step * 0.3} y={h - 18 - bh} width={step * 0.6} height={bh} rx="2" fill="rgb(25 230 255 / 0.22)" />;
         })}
         <polygon points={`${cx(0)},${h - 18} ${line} ${cx(weeks.length - 1)},${h - 18}`} fill="url(#mm-area)" />
         <polyline points={line} fill="none" stroke="var(--color-accent)" strokeWidth="2.5" strokeLinejoin="round" style={{ filter: "drop-shadow(0 0 6px rgb(255 45 85 / 0.6))" }} />
         {weeks.map((k, i) => (
           <g key={k.weekOf}>
-            <circle cx={cx(i)} cy={cy(k.typical)} r="3.5" fill="#07080d" stroke="var(--color-accent)" strokeWidth="2">
+            <circle cx={cx(i)} cy={cy(k.typical)} r="4" fill="#07080d" stroke="var(--color-accent)" strokeWidth="2">
               <title>{`Week of ${shortDate(k.weekOf)}: typical ${yen(k.typical)}, ${k.cars} cars`}</title>
             </circle>
-            <text x={cx(i)} y={h - 4} textAnchor="middle" className="fill-[var(--color-faint)] text-[10px]">{shortDate(k.weekOf)}</text>
+            <text x={cx(i)} y={h - 4} textAnchor="middle" fontSize="10" fill="var(--color-faint)">{shortDate(k.weekOf)}</text>
           </g>
         ))}
       </svg>
@@ -196,7 +196,7 @@ export function MarketStrip({ meter }: { meter: Meter }) {
       </div>
       <div className="mt-2 grid grid-cols-3 gap-3">
         <Stat label="Typical" value={yen(meter.typical)} />
-        <Stat label="At auction" value={String(meter.onAuctionNow)} />
+        <Stat label="Live now" value={String(meter.onAuctionNow)} />
         <Stat label="Trend" value={<Trend percent={meter.trendPercent} />} />
       </div>
       <p className="tabular mt-1 text-[11px] text-faint">Usually opens {yen(meter.low)}–{yen(meter.high).replace("¥", "")}</p>

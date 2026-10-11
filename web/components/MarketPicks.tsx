@@ -43,7 +43,7 @@ function Steal({ pick: p, month }: { pick: MarketPick; month: string }) {
           <img src={c.photo} alt={c.title} className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.03]" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-black/70" />
-        <span className="hanko absolute top-4 left-4 bg-black/50 px-2 py-1.5 text-sm backdrop-blur [writing-mode:vertical-rl]">掘り出し物</span>
+        <span className="hanko absolute top-5 left-5 bg-black/55 px-2.5 py-3 text-xl tracking-[0.15em] backdrop-blur [writing-mode:vertical-rl]">掘り出し物</span>
       </div>
       <div className="relative p-6 sm:p-8">
         <div className="grid-bg pointer-events-none absolute inset-0 opacity-50" aria-hidden />
