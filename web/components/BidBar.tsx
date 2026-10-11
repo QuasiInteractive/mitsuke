@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import Link from "next/link";
+import { Gavel, Heart, X, ChevronRight } from "lucide-react";
 import { setFeedback } from "@/app/actions";
 
 type Feedback = "Watching" | "NotForMe" | null;
@@ -11,6 +12,13 @@ type Feedback = "Watching" | "NotForMe" | null;
  * interest and Nick follows up by hand. Set NEXT_PUBLIC_BID_PARTNER_LIVE=true once an exporter is live.
  */
 const PARTNER_LIVE = process.env.NEXT_PUBLIC_BID_PARTNER_LIVE === "true";
+
+// Bids must reach the exporter before the auction day starts (the end of the day minus 24 hours).
+const subscribeMinute = (tick: () => void) => {
+  const t = setInterval(tick, 60_000);
+  return () => clearInterval(t);
+};
+const nowMinute = () => Math.floor(Date.now() / 60_000) * 60_000;
 
 type Status = { kind: "idle" } | { kind: "sending" } | { kind: "sent" } | { kind: "error"; message: string };
 
@@ -24,13 +32,17 @@ export function BidBar({
   openingBidJpy,
   signedIn,
   feedback,
+  auctionEndsAt,
 }: {
   lotId: string;
   title: string;
   openingBidJpy: number | null;
   signedIn: boolean;
   feedback: Feedback;
+  auctionEndsAt: string | null;
 }) {
+  const now = useSyncExternalStore(subscribeMinute, nowMinute, () => null);
+  const closed = now !== null && auctionEndsAt !== null && new Date(auctionEndsAt).getTime() - 86_400_000 <= now;
   const [open, setOpen] = useState(false);
   const [saving, startSaving] = useTransition();
   const toggle = (kind: Exclude<Feedback, null>) => startSaving(() => setFeedback(lotId, feedback === kind ? null : kind));
@@ -56,26 +68,34 @@ export function BidBar({
 
   return (
     <>
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/85 backdrop-blur-xl">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-hairline bg-ink/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:px-6">
-          <button onClick={() => setOpen(true)} className="flex-1 rounded-2xl bg-accent px-5 py-3.5 text-base font-semibold shadow-[0_8px_30px_-8px_var(--color-accent)] hover:bg-accent-strong sm:flex-none sm:px-10">
-            {PARTNER_LIVE ? "I want to bid ›" : "Request a bid ›"}
+          <button
+            onClick={() => setOpen(true)}
+            disabled={closed}
+            className="btn-primary flex-1 px-5 py-3.5 text-base whitespace-nowrap disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale sm:flex-none sm:px-9"
+          >
+            <Gavel className="size-5 shrink-0" aria-hidden />
+            {closed ? "Bidding closed" : PARTNER_LIVE ? "I want to bid" : "Request a bid"}
+            <ChevronRight className="hidden size-4 opacity-80 sm:block" aria-hidden />
           </button>
           {signedIn ? (
             <>
               <button
                 disabled={saving}
                 onClick={() => toggle("Watching")}
-                className={`rounded-2xl border px-4 py-3.5 text-sm ${feedback === "Watching" ? "border-accent bg-accent/15 text-text" : "border-line text-muted hover:text-text"}`}
+                className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3.5 text-sm transition ${feedback === "Watching" ? "border-accent bg-accent/15 text-text" : "border-hairline text-muted hover:border-white/20 hover:text-text"}`}
               >
-                {feedback === "Watching" ? "♥ Watching" : "♡ Keep watching"}
+                <Heart className={`size-4 ${feedback === "Watching" ? "fill-accent text-accent" : ""}`} aria-hidden />
+                {feedback === "Watching" ? "Watching" : "Keep watching"}
               </button>
               <button
                 disabled={saving}
                 onClick={() => toggle("NotForMe")}
-                className={`hidden rounded-2xl border px-4 py-3.5 text-sm sm:block ${feedback === "NotForMe" ? "border-line bg-raised text-text" : "border-line text-muted hover:text-text"}`}
+                className={`hidden items-center gap-2 rounded-2xl border px-4 py-3.5 text-sm transition sm:inline-flex ${feedback === "NotForMe" ? "border-hairline bg-white/5 text-text" : "border-hairline text-muted hover:border-white/20 hover:text-text"}`}
               >
-                {feedback === "NotForMe" ? "Hidden · undo" : "✕ Not for me"}
+                <X className="size-4" aria-hidden />
+                {feedback === "NotForMe" ? "Hidden · undo" : "Not for me"}
               </button>
             </>
           ) : (

@@ -27,9 +27,10 @@ export function Countdown({ auctionEndsAt }: { auctionEndsAt: string }) {
   const h = Math.floor((ms % 86_400_000) / 3_600_000);
   const m = Math.floor((ms % 3_600_000) / 60_000);
   return (
-    <span className="tabular text-2xl font-bold tracking-tight">
-      {d > 0 && <>{d}<span className="text-base text-muted">d</span> </>}
-      {h}<span className="text-base text-muted">h</span> {m}<span className="text-base text-muted">m</span>
+    <span className="figure text-3xl">
+      {d > 0 && <>{d}<span className="mr-2 text-lg text-muted">d</span></>}
+      {h}<span className="mr-2 text-lg text-muted">h</span>
+      {m}<span className="text-lg text-muted">m</span>
     </span>
   );
 }

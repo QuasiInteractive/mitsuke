@@ -26,12 +26,12 @@ export function LoginForm() {
 
   return (
     <form action={submit} className="mt-6 space-y-3">
-      <label className="block text-sm">
-        <span className="text-muted">Email</span>
-        <input name="email" type="email" required autoComplete="email" autoFocus className="mt-1 w-full rounded-xl border border-line bg-ink px-3 py-3 outline-none focus:border-accent" />
+      <label className="block">
+        <span className="label">Email</span>
+        <input name="email" type="email" required autoComplete="email" autoFocus placeholder="you@example.com" className="field" />
       </label>
       {state.kind === "error" && <p className="text-sm text-accent">{state.message}</p>}
-      <button disabled={state.kind === "sending"} className="w-full rounded-xl bg-accent py-3 font-semibold hover:bg-accent-strong disabled:opacity-60">
+      <button disabled={state.kind === "sending"} className="btn-primary w-full py-4">
         {state.kind === "sending" ? "Sending…" : "Email me a sign-in link"}
       </button>
     </form>

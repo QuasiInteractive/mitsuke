@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ImageOff } from "lucide-react";
 
 /**
  * The hero: the car's real auction photos. Auction shots are plain and often small, so they sit on a dark
@@ -8,18 +9,27 @@ import { useState } from "react";
  */
 export function Gallery({ photos, title }: { photos: string[]; title: string }) {
   const [index, setIndex] = useState(0);
-  if (photos.length === 0) {
+  const [failed, setFailed] = useState(false);
+  if (photos.length === 0 || failed) {
     return (
-      <div className="card flex aspect-[4/3] items-center justify-center text-sm text-faint">No photos published for this lot yet</div>
+      <div className="card flex aspect-[4/3] flex-col items-center justify-center gap-2 p-6 text-center">
+        <ImageOff className="size-8 text-faint" aria-hidden />
+        <p className="text-sm text-muted">{photos.length === 0 ? "No photos published for this lot yet" : "Photos are removed once the auction is over"}</p>
+      </div>
     );
   }
   const go = (delta: number) => setIndex((i) => (i + delta + photos.length) % photos.length);
 
   return (
     <div>
-      <div className="relative overflow-hidden rounded-[1.25rem] border border-line bg-black">
+      <div className="relative overflow-hidden rounded-[1.5rem] border border-hairline bg-black">
         {/* eslint-disable-next-line @next/next/no-img-element -- remote auction photos via redirecting, signed URLs */}
-        <img src={photos[index]} alt={`${title}, photo ${index + 1} of ${photos.length}`} className="aspect-[4/3] w-full object-contain" />
+        <img
+          src={photos[index]}
+          alt={`${title}, photo ${index + 1} of ${photos.length}`}
+          className="aspect-[4/3] w-full object-contain"
+          onError={() => index === 0 && setFailed(true)}
+        />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_55%,rgb(0_0_0/0.55))]" />
         {photos.length > 1 && (
           <>

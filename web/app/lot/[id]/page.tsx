@@ -1,4 +1,9 @@
 import { HowToGetIt } from "@/components/HowToGetIt";
+import { ScoreRing } from "@/components/Brand";
+import {
+  CalendarDays, Gauge, Star, Cog, CircleDot, Wrench, Palette, Clock, ClipboardList, Calculator, LineChart, CarFront,
+  Gavel, Ship, Receipt, FileCheck2, Coins, ShieldCheck, TriangleAlert, type LucideIcon,
+} from "lucide-react";
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -32,8 +37,8 @@ async function Lot({ id }: { id: string }) {
 
   return (
     <>
-      <div className="grid gap-6 lg:grid-cols-[1.15fr_1fr] lg:items-start">
-        <div className="space-y-4 lg:sticky lg:top-4">
+      <div className="grid gap-8 pt-6 lg:grid-cols-[1.15fr_1fr] lg:items-start lg:pt-8">
+        <div className="min-w-0 space-y-4 lg:sticky lg:top-24">
           <Gallery photos={lot.photos} title={lot.title} />
           {lot.sheetImage && (
             <a href={lot.sheetImage} target="_blank" rel="noreferrer" className="card flex items-center justify-between px-4 py-3 text-sm hover:border-accent">
@@ -45,7 +50,7 @@ async function Lot({ id }: { id: string }) {
           )}
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Header lot={lot} />
           <PriceCards lot={lot} />
           {lot.sheet?.redFlags.some((f) => f.severity === "High") && <RedFlags lot={lot} />}
@@ -67,8 +72,23 @@ async function Lot({ id }: { id: string }) {
         openingBidJpy={lot.openingBid?.currency === "JPY" ? lot.openingBid.amount : null}
         signedIn={user !== null}
         feedback={feedback?.kind ?? null}
+        auctionEndsAt={lot.auctionEndsAt}
       />
     </>
+  );
+}
+
+function SectionHead({ icon: Icon, title, aside }: { icon: LucideIcon; title: string; aside?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="flex items-center gap-3 text-lg font-semibold">
+        <span className="grid size-9 place-items-center rounded-xl border border-hairline bg-black/30 text-muted">
+          <Icon className="size-[18px]" aria-hidden />
+        </span>
+        {title}
+      </h2>
+      {aside && <span className="text-xs text-faint">{aside}</span>}
+    </div>
   );
 }
 
@@ -76,18 +96,18 @@ function Header({ lot }: { lot: LotView }) {
   // The sheet can say the odometer is wrong; never show the number as if it were fact.
   const mileageDoubtful = lot.sheet?.redFlags.some((f) => f.severity === "High" && /mileage|odometer/i.test(f.title)) ?? false;
   const built = lot.year && lot.month ? `Built ${new Date(lot.year, lot.month - 1, 1).toLocaleDateString("en-AU", { month: "short", year: "numeric" })}` : null;
-  const chips = [
-    built,
-    lot.mileageKm == null ? null : `${km(lot.mileageKm)}${mileageDoubtful ? " (unverified)" : ""}`,
-    lot.grade && `Grade ${lot.grade}${lot.gradeIsRepaired ? " (repaired)" : ""}`,
-    lot.transmission,
-    lot.rightHandDrive == null ? null : lot.rightHandDrive ? "RHD" : "LHD",
-    lot.isModified && "Modified",
-    lot.sheet?.colour,
-  ].filter(Boolean);
+  const chips: [LucideIcon, string | null | false | undefined][] = [
+    [CalendarDays, built],
+    [Gauge, lot.mileageKm == null ? null : `${km(lot.mileageKm)}${mileageDoubtful ? " (unverified)" : ""}`],
+    [Star, lot.grade && `Grade ${lot.grade}${lot.gradeIsRepaired ? " (repaired)" : ""}`],
+    [Cog, lot.transmission],
+    [CircleDot, lot.rightHandDrive == null ? null : lot.rightHandDrive ? "RHD" : "LHD"],
+    [Wrench, lot.isModified && "Modified"],
+    [Palette, lot.sheet?.colour],
+  ];
   return (
     <div>
-      <h1 className="text-2xl leading-tight font-bold tracking-tight sm:text-3xl">{lot.title}</h1>
+      <h1 className="font-display text-3xl leading-tight font-black tracking-tight italic sm:text-4xl">{lot.title}</h1>
       {lot.variant && (
         <p className="mt-1 text-lg font-semibold text-accent" title={lot.variant.reason}>
           {lot.variant.certain ? "" : "Likely "}
@@ -95,8 +115,11 @@ function Header({ lot }: { lot: LotView }) {
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
-        {chips.map((c) => (
-          <span key={String(c)} className="rounded-full border border-line bg-raised px-3 py-1 text-sm">{c}</span>
+        {chips.filter(([, text]) => text).map(([Icon, text]) => (
+          <span key={String(text)} className="inline-flex items-center gap-2 rounded-full border border-hairline bg-white/[0.03] px-3.5 py-1.5 text-sm">
+            <Icon className="size-4 text-muted" aria-hidden />
+            {text}
+          </span>
         ))}
       </div>
     </div>
@@ -106,33 +129,35 @@ function Header({ lot }: { lot: LotView }) {
 function PriceCards({ lot }: { lot: LotView }) {
   const deal = lot.deal;
   return (
-    <div className="grid grid-cols-[1.5fr_1fr] gap-3">
+    <div className="grid gap-3 sm:grid-cols-[1.45fr_1fr]">
       <div className="card relative overflow-hidden p-5">
-        <div className="pointer-events-none absolute -top-10 -right-10 size-36 rounded-full bg-accent/20 blur-2xl" />
-        <p className="text-sm text-muted">Est. landed in {lot.landed?.destination ?? "AU"}</p>
-        <p className="tabular mt-1 text-4xl font-bold tracking-tight">{money(lot.landed?.total)}</p>
+        <p className="relative text-sm text-muted">Est. landed in {lot.landed?.destination ?? "AU"}</p>
+        <p className="figure relative mt-1 text-4xl xl:text-5xl">{money(lot.landed?.total)}</p>
         {lot.landed && (
           <p className="tabular mt-1 text-xs text-faint">
             range {money(lot.landed.low)}–{money(lot.landed.high).replace(/^[A-Z$]+/, "")}
           </p>
         )}
-        <p className="mt-3 text-sm text-muted">
+        <p className="relative mt-3 text-sm text-muted">
           Opening bid <span className="tabular text-text">{money(lot.openingBid)}</span>
           {lot.auctionHouse && <> · {lot.auctionHouse}</>}
         </p>
         {lot.openingBid && (
-          <p className="mt-2 text-xs text-faint">Worked out from the opening bid, which is a floor: cars usually sell for more, so budget above this.</p>
+          <p className="relative mt-3 border-t border-hairline pt-3 text-xs text-faint">Based on the opening bid, which is a floor: cars usually sell for more.</p>
         )}
       </div>
       <div className={`card p-5 ${deal?.score != null && deal.score >= 80 ? "card-alert" : ""}`}>
         <p className="text-sm text-muted">Deal score</p>
         {deal?.score != null ? (
           <>
-            <p className="tabular mt-1 text-4xl font-bold">
-              {deal.score}
-              <span className="text-lg text-muted">/100</span>
-            </p>
-            <p className="mt-1 font-semibold text-accent">{deal.label}</p>
+            <div className="mt-2 flex items-center gap-3">
+              <ScoreRing score={deal.score} />
+              <p className="figure text-5xl">
+                {deal.score}
+                <span className="text-lg text-muted">/100</span>
+              </p>
+            </div>
+            <p className={`mt-2 font-semibold ${deal.score >= 70 ? "text-accent" : deal.score >= 40 ? "text-text" : "text-amber"}`}>{deal.label}</p>
             <p className="mt-2 text-xs text-faint">
               vs {deal.comparableCount} cars{deal.confidence === "Low" ? " · low confidence" : ""}
             </p>
@@ -157,7 +182,7 @@ function RedFlags({ lot }: { lot: LotView }) {
         .filter((f) => f.severity === "High")
         .map((f) => (
           <div key={f.title} className="flex gap-3">
-            <span className="text-xl text-accent">⚠</span>
+            <TriangleAlert className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden />
             <div>
               <p className="font-semibold">{f.title}</p>
               <p className="mt-0.5 text-sm text-muted">{f.detail}</p>
@@ -172,9 +197,9 @@ function RedFlags({ lot }: { lot: LotView }) {
 function AuctionCard({ lot }: { lot: LotView }) {
   return (
     <div className="card flex items-center gap-4 px-5 py-4">
-      <span className="grid size-10 place-items-center rounded-full border-2 border-accent text-accent">◷</span>
+      <Clock className="size-7 shrink-0 text-accent" aria-hidden />
       <div className="flex-1">
-        <p className="text-sm text-muted">Bids close before</p>
+        <p className="text-sm text-muted">Bids close in</p>
         <Countdown auctionEndsAt={lot.auctionEndsAt!} />
       </div>
       <p className="text-right text-sm text-muted">
@@ -189,13 +214,11 @@ function Condition({ lot }: { lot: LotView }) {
   const sheet = lot.sheet!;
   return (
     <section className="card p-5">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold">Condition</h2>
-        <span className="text-xs text-faint">
-          from the auction sheet{sheet.overallGrade && ` · grade ${sheet.overallGrade}`}
-          {lot.interiorGrade && ` · interior ${lot.interiorGrade}`}
-        </span>
-      </div>
+      <SectionHead
+        icon={ClipboardList}
+        title="Condition"
+        aside={<>from the auction sheet{sheet.overallGrade && ` · grade ${sheet.overallGrade}`}{lot.interiorGrade && ` · interior ${lot.interiorGrade}`}</>}
+      />
       <p className="mt-3 text-sm leading-relaxed text-muted">{sheet.summary}</p>
       <div className="mt-4 grid items-center gap-4 sm:grid-cols-[auto_1fr]">
         <div className="justify-self-center">
@@ -203,7 +226,7 @@ function Condition({ lot }: { lot: LotView }) {
         </div>
         <ul className="space-y-2">
           {sheet.damage.map((d, i) => (
-            <li key={i} className="flex items-start gap-3 rounded-xl border border-line bg-ink/60 px-3 py-2 text-sm">
+            <li key={i} className="flex items-start gap-3 rounded-xl border border-hairline bg-black/25 px-3.5 py-2.5 text-sm">
               <span className="mt-1.5 size-2.5 shrink-0 rounded-full" style={{ background: SEVERITY_COLOUR[damageSeverity(d.code)] }} />
               <span>
                 <span className="font-medium">{d.name ?? d.code}</span>
@@ -232,7 +255,7 @@ function CarDetails({ lot }: { lot: LotView }) {
   const unchecked = lot.spec.some((s) => !s.checked);
   return (
     <section className="card p-5">
-      <h2 className="text-lg font-semibold">The car</h2>
+      <SectionHead icon={CarFront} title="The car" />
       {lot.variant && <p className="mt-1 text-sm text-muted">{lot.variant.reason}</p>}
       {lot.spec.length > 0 && (
         <dl className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
@@ -258,6 +281,17 @@ const VERDICT = {
   No: { mark: "✕", tone: "text-accent border-accent/40 bg-accent/10" },
 } as const;
 
+function Pathway({ p }: { p: { name: string; verdict: "Yes" | "Maybe" | "No"; reason: string } }) {
+  return (
+    <li className="flex gap-3 text-sm">
+      <span className={`mt-0.5 shrink-0 font-bold ${VERDICT[p.verdict].tone.split(" ")[0]}`}>{VERDICT[p.verdict].mark}</span>
+      <span>
+        <span className="font-medium">{p.name}.</span> <span className="text-muted">{p.reason}</span>
+      </span>
+    </li>
+  );
+}
+
 function Eligibility({ lot }: { lot: LotView }) {
   const e = lot.eligibility!;
   const v = VERDICT[e.verdict];
@@ -270,61 +304,88 @@ function Eligibility({ lot }: { lot: LotView }) {
           <h2 className="text-lg font-semibold">{e.headline}</h2>
         </div>
       </div>
+      {/* When one route clearly works, show it; the rest fold away. Otherwise every route matters. */}
       <ul className="mt-4 space-y-3">
-        {e.pathways.map((p) => (
-          <li key={p.name} className="flex gap-3 text-sm">
-            <span className={`mt-0.5 shrink-0 font-bold ${VERDICT[p.verdict].tone.split(" ")[0]}`}>{VERDICT[p.verdict].mark}</span>
-            <span>
-              <span className="font-medium">{p.name}.</span> <span className="text-muted">{p.reason}</span>
-            </span>
-          </li>
-        ))}
+        {(e.verdict === "Yes" ? e.pathways.filter((p) => p.verdict === "Yes") : e.pathways).map((p) => <Pathway key={p.name} p={p} />)}
       </ul>
+      {e.verdict === "Yes" && e.pathways.some((p) => p.verdict !== "Yes") && (
+        <details className="group mt-3">
+          <summary className="cursor-pointer list-none text-sm text-muted hover:text-text">
+            Other pathways ({e.pathways.filter((p) => p.verdict !== "Yes").length}) <span className="inline-block transition group-open:rotate-180">⌄</span>
+          </summary>
+          <ul className="mt-3 space-y-3">
+            {e.pathways.filter((p) => p.verdict !== "Yes").map((p) => <Pathway key={p.name} p={p} />)}
+          </ul>
+        </details>
+      )}
       {e.links.length > 0 && (
-        <p className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-          {e.links.map((l) => (
-            <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
-              {l.label} ↗
-            </a>
-          ))}
-        </p>
+        <details className="group mt-4 border-t border-hairline pt-3">
+          <summary className="cursor-pointer list-none text-sm text-muted hover:text-text">
+            Official links ({e.links.length}) <span className="inline-block transition group-open:rotate-180">⌄</span>
+          </summary>
+          <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+            {e.links.map((l) => (
+              <a key={l.url} href={l.url} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                {l.label} ↗
+              </a>
+            ))}
+          </p>
+        </details>
       )}
       <p className="mt-3 text-xs text-faint">Rules last checked {e.rulesCheckedOn}. Confirm with your exporter or a compliance workshop before bidding.</p>
     </section>
   );
 }
 
+/** An icon for each kind of cost line, matched on the engine's id or label. */
+function costIcon(id: string, label: string): LucideIcon {
+  const t = `${id} ${label}`.toLowerCase();
+  if (/vehicle|car|price/.test(t)) return CarFront;
+  if (/auction|export|agent|fee/.test(t)) return Gavel;
+  if (/ship|freight|transport|port/.test(t)) return Ship;
+  if (/duty|gst|tax|lct/.test(t)) return Receipt;
+  if (/compli|raw|inspect|rego|regist/.test(t)) return FileCheck2;
+  if (/insur/.test(t)) return ShieldCheck;
+  return Coins;
+}
+
 function CostBreakdown({ lot }: { lot: LotView }) {
   const landed = lot.landed!;
   return (
     <details className="card group p-5" open>
-      <summary className="flex cursor-pointer list-none items-baseline justify-between">
-        <h2 className="text-lg font-semibold">Cost breakdown</h2>
-        <span className="text-xs text-faint">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+        <SectionHead icon={Calculator} title="Cost breakdown" />
+        <span className="text-right text-xs text-faint">
           ¥{Math.round(landed.jpyPerUnit)} = {money({ amount: 1, currency: landed.total.currency })}
           {landed.fxLive && landed.fxDate ? ` · ECB rate, ${shortDate(landed.fxDate)}` : " · fallback rate"}{" "}
           <span className="inline-block transition group-open:rotate-180">⌄</span>
         </span>
       </summary>
-      <ul className="mt-3 divide-y divide-line text-sm">
+      <ul className="mt-4 divide-y divide-hairline text-sm">
         {landed.lines
           .filter((l) => l.amount.amount !== 0)
           .map((l) => (
-            <li key={l.id} className="flex items-baseline justify-between gap-4 py-2.5">
-              <span className="text-muted">
+            <li key={l.id} className="flex items-center justify-between gap-4 py-3">
+              <span className="flex items-start gap-3 text-muted">
+                {(() => {
+                  const Icon = costIcon(l.id, l.label);
+                  return <Icon className="mt-0.5 size-4 shrink-0 text-faint" aria-hidden />;
+                })()}
+                <span>
                 {l.label}
                 {l.isEstimate && l.low && l.high && l.low.amount !== l.high.amount && (
                   <span className="tabular block text-xs text-faint">
                     {money(l.low)}–{money(l.high).replace(/^[A-Z$]+/, "")}
                   </span>
                 )}
+                </span>
               </span>
-              <span className="tabular shrink-0">{money(l.amount)}</span>
+              <span className="tabular shrink-0 text-text">{money(l.amount)}</span>
             </li>
           ))}
-        <li className="flex items-baseline justify-between pt-3 text-base font-semibold">
-          <span>Total (est.)</span>
-          <span className="tabular">{money(landed.total)}</span>
+        <li className="flex items-baseline justify-between pt-4 text-lg font-bold">
+          <span>Total <span className="text-sm font-normal text-muted">(est.)</span></span>
+          <span className="tabular text-xl">{money(landed.total)}</span>
         </li>
       </ul>
       {landed.note && <p className="mt-3 text-xs text-faint">{landed.note}</p>}
@@ -340,7 +401,7 @@ function History({ lot }: { lot: LotView }) {
   if (lot.relists.length === 0 && points.length < 2) {
     return (
       <section className="card p-5">
-        <h2 className="text-lg font-semibold">History</h2>
+        <SectionHead icon={LineChart} title="History" />
         <p className="mt-2 text-sm text-muted">First time Mitsuke has seen this car at auction.</p>
       </section>
     );
@@ -349,7 +410,7 @@ function History({ lot }: { lot: LotView }) {
   const changes = [...new Set(lot.relists.flatMap((r) => r.changes))];
   return (
     <section className="card p-5">
-      <h2 className="text-lg font-semibold">History</h2>
+      <SectionHead icon={LineChart} title="History" />
       <p className="mt-1 text-sm text-muted">
         Seen at auction {lot.relists.length} time{lot.relists.length === 1 ? "" : "s"} before{first && <>, since {shortDate(first)}</>}.
         {lot.relists.length >= 2 && (
