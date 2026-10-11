@@ -10,6 +10,12 @@ public static class ServiceCollectionExtensions
     public const int DefaultMaxPoolSize = 4;
 
     /// <summary>
+    /// Seconds an idle pooled connection is kept before it's closed (Npgsql's default is 300). Every idle connection
+    /// holds one of the pooler's 15 sessions, so they're handed back quickly; reopening one costs a few milliseconds.
+    /// </summary>
+    public const int DefaultIdleLifetimeSeconds = 60;
+
+    /// <summary>
     /// Production goes through Supabase's session pooler, which allows 15 sessions in total across the API and every
     /// pipeline instance; Npgsql's default of 100 per process let one busy page exhaust it (8 Oct 2026). An explicit
     /// "Maximum Pool Size" in the connection string still wins.
@@ -20,6 +26,11 @@ public static class ServiceCollectionExtensions
         if (!connectionString.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase)
             && !connectionString.Contains("MaxPoolSize", StringComparison.OrdinalIgnoreCase))
             builder.MaxPoolSize = DefaultMaxPoolSize;
+        if (!connectionString.Contains("Idle Lifetime", StringComparison.OrdinalIgnoreCase))
+        {
+            builder.ConnectionIdleLifetime = DefaultIdleLifetimeSeconds;
+            builder.ConnectionPruningInterval = 10;
+        }
         return builder.ConnectionString;
     }
 
