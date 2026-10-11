@@ -34,8 +34,12 @@ public class ListingIdentityTests
     [Theory]
     [InlineData("Host=h;Database=d", 4)]
     [InlineData("Host=h;Database=d;Maximum Pool Size=12", 12)]
-    public void Each_process_takes_only_a_few_database_connections(string connection, int pool) =>
-        Assert.Equal(pool, new Npgsql.NpgsqlConnectionStringBuilder(Mitsuke.Data.ServiceCollectionExtensions.WithPoolCap(connection)).MaxPoolSize);
+    public void Each_process_takes_only_a_few_database_connections(string connection, int pool)
+    {
+        var b = new Npgsql.NpgsqlConnectionStringBuilder(Mitsuke.Data.ServiceCollectionExtensions.WithPoolCap(connection));
+        Assert.Equal(pool, b.MaxPoolSize);
+        Assert.Equal(60, b.ConnectionIdleLifetime); // idle sessions go back to the pooler after a minute
+    }
 
     [Fact]
     public void Lots_without_a_number_are_never_merged() =>

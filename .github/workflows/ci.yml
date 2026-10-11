@@ -112,7 +112,14 @@ jobs:
         run: |
           db="$(az keyvault secret show --vault-name '${{ vars.AZURE_KEYVAULT }}' --name mitsuke-db --query value -o tsv)"
           echo "::add-mask::$db"
-          MITSUKE_DB="$db" dotnet run --project src/Mitsuke.Cli -c Release -- migrate
+          dotnet build src/Mitsuke.Cli -c Release -v q
+          # The Supabase session pooler has 15 slots shared with the live apps; if a collection burst has them all,
+          # wait and retry rather than fail the deploy (8 Oct and 11 Oct 2026).
+          for attempt in 1 2 3 4 5; do
+            MITSUKE_DB="$db" dotnet run --project src/Mitsuke.Cli -c Release --no-build -- migrate && break
+            [ "$attempt" = 5 ] && exit 1
+            echo "Migration attempt $attempt failed; retrying in 20 s"; sleep 20
+          done
 
       - name: Publish
         run: |
