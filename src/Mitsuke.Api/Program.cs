@@ -37,6 +37,8 @@ if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_
 }
 DetailsRefreshSender.AddPipelineQueues(builder.Services, builder.Configuration);
 builder.Services.AddSingleton<LotViewBuilder>();
+builder.Services.AddSingleton<MarketPicksBuilder>();
+builder.Services.AddMemoryCache();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -85,6 +87,10 @@ api.MapGet("/matches", async (Guid? watchlistId, string? to, int? limit, IReadQu
     TypedResults.Ok(await lots.CardsAsync(
         await queries.GetRecentMatchesAsync(watchlistId, Math.Clamp(limit ?? 24, 1, 100), ct), MeEndpoints.Destination(to), ct)))
     .WithSummary("Recent matches from the public demo watchlists, newest first.");
+
+api.MapGet("/market/picks", async (string? to, MarketPicksBuilder picks, CancellationToken ct) =>
+    TypedResults.Ok(await picks.GetAsync(MeEndpoints.Destination(to), ct)))
+    .WithSummary("Steal of the month and what's cheap right now: clean cars opening well under the usual for their chassis code.");
 
 api.MapGet("/watchlists", async (IReadQueries queries, CancellationToken ct) =>
     TypedResults.Ok(await queries.GetWatchlistSummariesAsync(ct)))

@@ -4,6 +4,7 @@ import { BellRing, Calculator, FileSearch, ShieldCheck, ArrowRight, Gauge, Calen
 import { getMatches, getMyMatches, getMyWatchlists, getWatchlists, type LotCard } from "@/lib/api";
 import { getUser } from "@/lib/supabase/server";
 import { HeroVideo } from "@/components/HeroVideo";
+import { MarketPicks } from "@/components/MarketPicks";
 import { day, km, money } from "@/lib/format";
 
 export default function Home() {
@@ -21,6 +22,9 @@ async function HomeContent() {
   const [cards, lists] = await Promise.all([getMyMatches(user.accessToken), getMyWatchlists(user.accessToken)]);
   return (
     <div className="space-y-10 pt-10">
+      <Suspense fallback={null}>
+        <MarketPicks />
+      </Suspense>
       <section className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="label text-accent">Your matches</p>
@@ -108,6 +112,10 @@ async function Landing() {
           {hero && <HeroCard card={hero} />}
         </div>
       </section>
+
+      <Suspense fallback={<div className="card h-80 animate-pulse" />}>
+        <MarketPicks />
+      </Suspense>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {PROMISES.map(({ icon: Icon, title, body }) => (

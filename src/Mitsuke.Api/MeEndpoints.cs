@@ -83,6 +83,14 @@ public static class MeEndpoints
             return TypedResults.Ok(await lots.CloseMatchesAsync(watchlist, clock.GetUtcNow(), ct));
         });
 
+        me.MapGet("/watchlists/{id:guid}/market", async Task<Results<Ok<MarketMeter>, NoContent, NotFound>> (
+            Guid id, ClaimsPrincipal principal, IUserStore users, IWatchlistStore watchlists, LotViewBuilder lots, CancellationToken ct) =>
+        {
+            var user = await CurrentUserAsync(principal, users, ct);
+            if (await watchlists.GetAsync(id, ct) is not { } watchlist || watchlist.OwnerId != user.Id) return TypedResults.NotFound();
+            return await lots.MarketAsync(MarketScope.For(watchlist), null, ct) is { } meter ? TypedResults.Ok(meter) : TypedResults.NoContent();
+        });
+
         me.MapGet("/matches", async (string? to, ClaimsPrincipal principal, IUserStore users, IReadQueries queries, LotViewBuilder lots, CancellationToken ct) =>
         {
             var user = await CurrentUserAsync(principal, users, ct);

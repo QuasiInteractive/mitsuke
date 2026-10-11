@@ -31,6 +31,9 @@ public sealed record LotView
     public LandedEstimate? Landed { get; init; }
     public ImportEligibility? Eligibility { get; init; }
     public DealScore? Deal { get; init; }
+
+    /// <summary>Where this lot sits in its model's market: typical opening bid, spread, weekly trend, supply.</summary>
+    public MarketMeter? Market { get; init; }
     public SheetReport? Sheet { get; init; }
 
     public IReadOnlyList<Uri> Photos { get; init; } = [];
@@ -71,8 +74,21 @@ public sealed class LotViewBuilder(
     IComparablesStore comparables,
     IReadQueries queries,
     IEligibilityChecker eligibility,
+    IMarketStore market,
+    TimeProvider clock,
     IDetailsRefreshRequests? refresh = null)
 {
+    /// <summary>How far back the market meter looks: long enough for a trend, short enough to be "the market now".</summary>
+    public static readonly TimeSpan MarketWindow = TimeSpan.FromDays(84);
+
+    /// <summary>The market meter for any scope, optionally placing one price in it. Null with too few cars.</summary>
+    public async Task<MarketMeter?> MarketAsync(MarketScope scope, decimal? thisPrice, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(scope);
+        var now = clock.GetUtcNow();
+        return MarketMeters.Build(scope.Name, "JPY", await market.GetSamplesAsync(scope, now - MarketWindow, now, cancellationToken), thisPrice);
+    }
+
     public async Task<LotView?> BuildAsync(Guid listingId, string destination, CancellationToken cancellationToken)
     {
         var listing = await listings.GetAsync(listingId, cancellationToken);
@@ -112,6 +128,7 @@ public sealed class LotViewBuilder(
             Landed = landed,
             Eligibility = await eligibility.CheckAsync(listing, destination, sheet?.Modifications, cancellationToken),
             Deal = deal,
+            Market = await MarketAsync(MarketScope.For(listing), listing.Price is { Currency: "JPY" } yen ? yen.Amount : null, cancellationToken),
             Sheet = sheet,
             // The full gallery when we have it, otherwise the search preview.
             Photos = detail?.PhotoUrls.Count > 0 ? detail.PhotoUrls : listing.PhotoUrls,

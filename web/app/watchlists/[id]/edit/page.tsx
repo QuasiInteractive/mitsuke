@@ -10,10 +10,17 @@ export const metadata: Metadata = { title: "Edit watchlist" };
 
 export default function EditWatchlistPage({ params }: PageProps<"/watchlists/[id]/edit">) {
   return (
-    <div className="mx-auto max-w-3xl pt-8">
-      <p className="label text-accent">Edit watchlist</p>
-      <h1 className="display mt-3">Fine-tune the hunt</h1>
-      <p className="mt-3 max-w-xl text-muted">Changes apply from the next check. Cars you&apos;ve already been alerted about won&apos;t be sent again.</p>
+    <div className="mx-auto max-w-3xl">
+      <section className="relative isolate left-1/2 w-screen -translate-x-1/2 overflow-hidden pt-12 pb-2">
+        <div className="grid-bg absolute inset-0 -z-10 opacity-70" />
+        <div className="mx-auto max-w-3xl px-4 sm:px-6">
+          <p className="label text-accent">Edit watchlist</p>
+          <h1 className="display mt-3">
+            Fine-tune the <span className="glow-red">hunt</span>
+          </h1>
+          <p className="mt-3 max-w-xl text-muted">Changes apply from the next check. Cars you&apos;ve already been alerted about won&apos;t be sent again.</p>
+        </div>
+      </section>
       <Suspense fallback={<div className="mt-6 h-96 animate-pulse rounded-[1.25rem] bg-raised" />}>
         {params.then(({ id }) => <Editor id={id} />)}
       </Suspense>
