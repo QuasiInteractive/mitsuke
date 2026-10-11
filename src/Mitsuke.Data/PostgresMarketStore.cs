@@ -53,7 +53,7 @@ public sealed class PostgresMarketStore(NpgsqlDataSource db) : IMarketStore
             with cars as (
                 select distinct on ({CarKey})
                        l.id, lower(l.make) as make, upper(l.model_code) as code, l.year, l.mileage_km, l.grade_score,
-                       l.grade_repaired, l.first_seen_at, p.amount
+                       l.grade_repaired, l.first_seen_at, l.auction_ends_at, p.amount
                 from listings l
                 {LatestYen}
                 where l.model_code is not null and l.first_seen_at >= @now - interval '84 days'
@@ -70,6 +70,8 @@ public sealed class PostgresMarketStore(NpgsqlDataSource db) : IMarketStore
             from cars c
             join typical t on t.make = c.make and t.code = c.code
             where c.first_seen_at >= @since
+              -- An old auction the feed only surfaced now is market history, not this month's find.
+              and (c.auction_ends_at is null or c.auction_ends_at >= @since)
               and not c.grade_repaired and coalesce(c.grade_score, 0) >= 3.5
               and (c.mileage_km is null or t.km is null or c.mileage_km <= t.km * 1.25)
               and c.amount <= t.typical * 0.85 and c.amount >= t.typical * 0.25

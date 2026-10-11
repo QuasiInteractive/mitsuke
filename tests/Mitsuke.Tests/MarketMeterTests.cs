@@ -121,6 +121,9 @@ public sealed class PostgresMarketStoreTests(PostgresFixture pg) : IAsyncLifetim
         await AddAsync("rough", 2_000_000, daysAgo: 3, grade: "R");
         await AddAsync("tired", 2_000_000, daysAgo: 3, km: 200_000);
         await AddAsync("old-news", 2_000_000, daysAgo: 40);
+        var archived = await AddAsync("archived", 2_000_000, daysAgo: 3);
+        await using (var c = await pg.Db.OpenConnectionAsync()) // seen this week, but its auction was in July
+            await c.ExecuteAsync("update listings set auction_ends_at = @at where id = @archived", new { at = Now.AddDays(-100), archived });
 
         // A month start in Japan time, as the home page passes it: must not trip Npgsql's UTC-only rule.
         var found = await _market.ScanAsync(Now.AddDays(-10).ToOffset(TimeSpan.FromHours(9)), Now, 10);
@@ -131,6 +134,6 @@ public sealed class PostgresMarketStoreTests(PostgresFixture pg) : IAsyncLifetim
         Assert.True(pick.Typical > 2_900_000);
 
         await using var conn = await pg.Db.OpenConnectionAsync();
-        Assert.Equal(15, await conn.ExecuteScalarAsync<int>("select count(*) from listings"));
+        Assert.Equal(16, await conn.ExecuteScalarAsync<int>("select count(*) from listings"));
     }
 }
