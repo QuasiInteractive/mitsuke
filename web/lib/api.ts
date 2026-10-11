@@ -191,5 +191,7 @@ export const getMyCloseMatches = async (token: string, watchlistId: string) =>
   (await getAs<CloseMatch[]>(token, `/api/me/watchlists/${encodeURIComponent(watchlistId)}/close-matches`)) ?? [];
 export const getMyWatchlistMarket = (token: string, watchlistId: string) =>
   getAs<MarketMeter>(token, `/api/me/watchlists/${encodeURIComponent(watchlistId)}/market`).catch(() => null);
+export const getMyWatchlistMatches = (token: string, watchlistId: string) =>
+  getAs<LotCard[]>(token, `/api/me/watchlists/${encodeURIComponent(watchlistId)}/matches`).catch(() => null);
 export const getMyMatches = async (token: string) => (await getAs<LotCard[]>(token, "/api/me/matches")) ?? [];
 export const getMyFeedback = (token: string, lotId: string) => getAs<LotFeedback>(token, `/api/me/lots/${encodeURIComponent(lotId)}/feedback`);

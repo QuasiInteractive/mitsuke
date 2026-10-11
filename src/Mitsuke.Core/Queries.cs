@@ -25,8 +25,8 @@ public interface IReadQueries
     /// </summary>
     Task<IReadOnlyList<Guid>> GetCurrentLotsAsync(Watchlist watchlist, DateTimeOffset now, int limit, CancellationToken cancellationToken = default);
 
-    /// <summary>Alerted lots from this user's watchlists, minus anything they marked "not for me".</summary>
-    Task<IReadOnlyList<MatchSummary>> GetUserMatchesAsync(Guid userId, int limit, CancellationToken cancellationToken = default);
+    /// <summary>Alerted lots from this user's watchlists (or just one of them), minus anything they marked "not for me".</summary>
+    Task<IReadOnlyList<MatchSummary>> GetUserMatchesAsync(Guid userId, int limit, Guid? watchlistId = null, CancellationToken cancellationToken = default);
 }
 
 public interface IBidRequestStore

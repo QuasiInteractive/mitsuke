@@ -54,7 +54,7 @@ public sealed class PostgresReadQueries(NpgsqlDataSource db, IWatchlistStore wat
             """, new { make = watchlist.Make, model = watchlist.Model, codes = PgArray.Of(codes), now, limit })).ToList();
     }
 
-    public async Task<IReadOnlyList<MatchSummary>> GetUserMatchesAsync(Guid userId, int limit, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<MatchSummary>> GetUserMatchesAsync(Guid userId, int limit, Guid? watchlistId = null, CancellationToken cancellationToken = default)
     {
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
         var rows = await conn.QueryAsync<(Guid ListingId, Guid WatchlistId, string Name, DateTime AlertedAt)>("""
@@ -62,13 +62,14 @@ public sealed class PostgresReadQueries(NpgsqlDataSource db, IWatchlistStore wat
             from alerts a
             join watchlists w on w.id = a.watchlist_id and w.user_id = @userId
             where a.status = 'sent'
+              and (@watchlistId::uuid is null or a.watchlist_id = @watchlistId)
               and not exists (
                   select 1 from lot_feedback f
                   where f.user_id = @userId and f.listing_id = a.listing_id and f.kind = 'not_for_me')
             group by a.listing_id, a.watchlist_id, w.name
             order by alerted_at desc
             limit @limit
-            """, new { userId, limit });
+            """, new { userId, limit, watchlistId });
         return rows.Select(r => new MatchSummary(r.ListingId, r.WatchlistId, r.Name, new DateTimeOffset(DateTime.SpecifyKind(r.AlertedAt, DateTimeKind.Utc)))).ToList();
     }
 
@@ -77,9 +78,15 @@ public sealed class PostgresReadQueries(NpgsqlDataSource db, IWatchlistStore wat
         var active = (await watchlists.GetActiveAsync(cancellationToken)).Where(w => w.OwnerId is null).ToList();
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
         var counts = (await conn.QueryAsync<(Guid WatchlistId, int Matches, DateTime Last)>("""
-                select watchlist_id, count(distinct listing_id)::int, max(coalesce(sent_at, created_at))
-                from alerts where status = 'sent'
-                group by watchlist_id
+                -- Cars, not listings: one lot listed twice (ListingIdentity) counts once.
+                select a.watchlist_id, count(distinct coalesce(
+                case when l.lot_number <> '' and l.auction_ends_at is not null then concat_ws('|',
+                    ((l.auction_ends_at at time zone 'Asia/Tokyo') - interval '1 second')::date, trim(l.lot_number),
+                    upper(coalesce(l.model_code, '')), l.year, l.mileage_km) end,
+                l.id::text))::int, max(coalesce(a.sent_at, a.created_at))
+                from alerts a join listings l on l.id = a.listing_id
+                where a.status = 'sent'
+                group by a.watchlist_id
                 """))
             .ToDictionary(r => r.WatchlistId);
 
