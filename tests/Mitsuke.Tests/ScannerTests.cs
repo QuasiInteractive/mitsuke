@@ -73,6 +73,20 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_copy_of_the_lot_that_turns_up_a_run_later_is_recorded_but_not_sent_again()
+    {
+        _source.Lots = [Lot("copy-a") with { LotNumber = "58212", Price = null }];
+        await CreateScanner().RunAsync();
+        _source.Lots = [Lot("copy-a") with { LotNumber = "58212", Price = null }, Lot("copy-b") with { LotNumber = "58212" }];
+        var second = await CreateScanner().RunAsync();
+
+        Assert.Single(_notifier.Sent);              // one car, one notification
+        Assert.Equal(0, second.Sent);
+        var matches = await new PostgresReadQueries(pg.Db, new PostgresWatchlistStore(pg.Db)).GetRecentMatchesAsync(null, 10);
+        Assert.Equal(2, matches.Count);             // both copies recorded, so lists can show the priced one
+    }
+
+    [Fact]
     public async Task One_lot_listed_twice_is_alerted_once_through_its_priced_copy()
     {
         var unpriced = Lot("copy-a") with { LotNumber = "58212", Price = null };

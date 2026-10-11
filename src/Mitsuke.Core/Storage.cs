@@ -39,4 +39,11 @@ public interface IAlertLog
     Task MarkSentAsync(long alertId, CancellationToken cancellationToken = default);
 
     Task MarkFailedAsync(long alertId, string reason, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Whether this watchlist was already alerted about the same car through another copy of the lot (same auction
+    /// day, lot number, chassis code, year and mileage; see <see cref="ListingIdentity"/>). The feed's second copy
+    /// often turns up a run later, so the collector's own one-copy rule can't catch it.
+    /// </summary>
+    Task<bool> AlertedOtherCopyAsync(Guid watchlistId, Guid listingId, CancellationToken cancellationToken = default) => Task.FromResult(false);
 }

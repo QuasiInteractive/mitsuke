@@ -313,6 +313,26 @@ public sealed class PostgresAlertLog(NpgsqlDataSource db) : IAlertLog
             """, new { watchlistId, listingId, channel, expiry = ClaimExpiry });
     }
 
+    public async Task<bool> AlertedOtherCopyAsync(Guid watchlistId, Guid listingId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(cancellationToken);
+        // ListingIdentity.SameLotKey in SQL: the auction day in Japan (the end is midnight JST, so step back a second).
+        return await conn.ExecuteScalarAsync<bool>("""
+            select exists (
+                select 1
+                from listings me
+                join listings other on other.id <> me.id
+                    and ((other.auction_ends_at at time zone 'Asia/Tokyo') - interval '1 second')::date
+                      = ((me.auction_ends_at at time zone 'Asia/Tokyo') - interval '1 second')::date
+                    and trim(other.lot_number) = trim(me.lot_number)
+                    and upper(coalesce(other.model_code, '')) = upper(coalesce(me.model_code, ''))
+                    and other.year is not distinct from me.year
+                    and other.mileage_km is not distinct from me.mileage_km
+                join alerts a on a.listing_id = other.id and a.watchlist_id = @watchlistId and a.status in ('sent', 'pending')
+                where me.id = @listingId and me.lot_number <> '' and me.auction_ends_at is not null)
+            """, new { watchlistId, listingId });
+    }
+
     public async Task MarkSentAsync(long alertId, CancellationToken cancellationToken = default)
     {
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
