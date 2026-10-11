@@ -38,9 +38,14 @@ function Steal({ pick: p, month }: { pick: MarketPick; month: string }) {
   return (
     <Link href={`/lot/${c.id}`} className="card card-alert underglow group relative grid overflow-hidden md:grid-cols-[1.2fr_1fr]">
       <div className="relative min-h-64 bg-black">
+        {/* Behind the photo: what shows if the auction house has already taken the photos down. */}
+        <div className="grid-bg absolute inset-0 grid place-items-center opacity-80">
+          <span className="display text-5xl text-white/10">{p.group}</span>
+        </div>
         {c.photo && (
+          // Empty alt: a removed photo then renders as nothing, not a broken-image icon. The title is beside it.
           // eslint-disable-next-line @next/next/no-img-element -- remote auction photos via signed URLs
-          <img src={c.photo} alt={c.title} className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.03]" />
+          <img src={c.photo} alt="" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-[1.03]" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:via-transparent md:to-black/70" />
         <span className="hanko absolute top-5 left-5 bg-black/55 px-2.5 py-3 text-xl tracking-[0.15em] backdrop-blur [writing-mode:vertical-rl]">掘り出し物</span>

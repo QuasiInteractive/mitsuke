@@ -56,7 +56,10 @@ public sealed class MarketPicksBuilder(IMarketStore market, IListingStore listin
         }
 
         var month = tokyo.ToString("MMMM", CultureInfo.InvariantCulture);
-        return new MarketPicks(month, picks.OrderByDescending(p => p.PercentUnder).FirstOrDefault(),
+        // One you can still bid on beats a slightly better one that's gone; the month's best only when nothing's open.
+        var steal = picks.Where(p => p.BiddingOpen).OrderByDescending(p => p.PercentUnder).FirstOrDefault()
+            ?? picks.OrderByDescending(p => p.PercentUnder).FirstOrDefault();
+        return new MarketPicks(month, steal,
             picks.Where(p => p.BiddingOpen).Take(6).ToList(), now, Basis);
     }
 }

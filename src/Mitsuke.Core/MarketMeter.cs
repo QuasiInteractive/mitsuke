@@ -179,7 +179,7 @@ public interface IMarketStore
     Task<IReadOnlyList<MarketSample>> GetSamplesAsync(MarketScope scope, DateTimeOffset since, DateTimeOffset now, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Lots first seen since <paramref name="since"/> whose opening bid is well under the typical for their chassis code
+    /// Lots first seen, and going to auction, since <paramref name="since"/> whose opening bid is well under the typical for their chassis code
     /// (over the last twelve weeks), cleanest first: good grade, not repaired, not high mileage for the model.
     /// </summary>
     Task<IReadOnlyList<MarketCandidate>> ScanAsync(DateTimeOffset since, DateTimeOffset now, int limit, CancellationToken cancellationToken = default);
