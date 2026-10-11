@@ -96,6 +96,17 @@ public sealed partial class AlertSender(
             return enriched = new Enriched(landed, details, deal, sheet, import, links?.LotUrl(request.ListingId));
         }
 
+        // Another copy of this lot was already alerted: record this one as matched (so match lists can show whichever copy
+        // has the price and the full photos) without notifying anyone a second time.
+        if (await alerts.AlertedOtherCopyAsync(watchlist.Id, request.ListingId, cancellationToken))
+        {
+            foreach (var channel in channels)
+                if (await alerts.TryClaimAsync(watchlist.Id, request.ListingId, channel, cancellationToken) is { } id)
+                    await alerts.MarkSentAsync(id, cancellationToken);
+            LogOtherCopy(logger, listing.Key, watchlist.Name);
+            return AlertOutcome.AlreadySent;
+        }
+
         // Each channel is claimed on its own: a retry after a failed push resends only the push, never the email.
         int sent = 0, already = 0;
         Exception? firstFailure = null;
@@ -233,6 +244,9 @@ public sealed partial class AlertSender(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Alerted {Key} for '{Watchlist}' via {Channel}")]
     private static partial void LogSent(ILogger logger, ListingKey key, string watchlist, string channel);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Not alerting {Key} for '{Watchlist}': already alerted through another copy of the same lot (recorded, not sent)")]
+    private static partial void LogOtherCopy(ILogger logger, ListingKey key, string watchlist);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Skipped alert: watchlist {WatchlistId} or listing {ListingId} is gone or inactive")]
     private static partial void LogSkipped(ILogger logger, Guid watchlistId, Guid listingId);

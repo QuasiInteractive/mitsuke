@@ -127,11 +127,15 @@ public sealed class LotViewBuilder(
     public async Task<IReadOnlyList<LotCard>> CardsAsync(IEnumerable<MatchSummary> matches, string destination, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(matches);
-        var cards = new List<LotCard>();
+        var found = new List<(MatchSummary Match, Listing Listing)>();
         foreach (var match in matches)
+            if (await listings.GetAsync(match.ListingId, cancellationToken) is { } l) found.Add((match, l));
+
+        // Matches alerted before duplicate copies were caught (and the feed's habit of listing a lot twice) mean one car
+        // can be here twice, once without a price and with tiny photos: show it once, as its best copy.
+        var cards = new List<LotCard>();
+        foreach (var (match, listing) in ListingIdentity.OnePerCar(found, f => f.Listing).Select(f => (f.Match, f.Listing)))
         {
-            var listing = await listings.GetAsync(match.ListingId, cancellationToken);
-            if (listing is null) continue;
             var sheet = await sheets.GetAsync(match.ListingId, cancellationToken);
             var landed = listing.Price is { } price ? await landedCost.EstimateAsync(price, destination, cancellationToken) : null;
             var deal = DealScorer.Score(listing, await comparables.GetCandidatesAsync(listing, cancellationToken: cancellationToken));
