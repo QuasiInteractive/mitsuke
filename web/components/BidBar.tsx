@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
+import { Gavel, Heart, X, ChevronRight } from "lucide-react";
 import { setFeedback } from "@/app/actions";
 
 type Feedback = "Watching" | "NotForMe" | null;
@@ -56,26 +57,30 @@ export function BidBar({
 
   return (
     <>
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-ink/85 backdrop-blur-xl">
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-hairline bg-ink/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3 sm:px-6">
-          <button onClick={() => setOpen(true)} className="flex-1 rounded-2xl bg-accent px-5 py-3.5 text-base font-semibold shadow-[0_8px_30px_-8px_var(--color-accent)] hover:bg-accent-strong sm:flex-none sm:px-10">
-            {PARTNER_LIVE ? "I want to bid ›" : "Request a bid ›"}
+          <button onClick={() => setOpen(true)} className="btn-primary flex-1 px-5 py-3.5 text-base sm:flex-none sm:px-9">
+            <Gavel className="size-5" aria-hidden />
+            {PARTNER_LIVE ? "I want to bid" : "Request a bid"}
+            <ChevronRight className="size-4 opacity-80" aria-hidden />
           </button>
           {signedIn ? (
             <>
               <button
                 disabled={saving}
                 onClick={() => toggle("Watching")}
-                className={`rounded-2xl border px-4 py-3.5 text-sm ${feedback === "Watching" ? "border-accent bg-accent/15 text-text" : "border-line text-muted hover:text-text"}`}
+                className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-3.5 text-sm transition ${feedback === "Watching" ? "border-accent bg-accent/15 text-text" : "border-hairline text-muted hover:border-white/20 hover:text-text"}`}
               >
-                {feedback === "Watching" ? "♥ Watching" : "♡ Keep watching"}
+                <Heart className={`size-4 ${feedback === "Watching" ? "fill-accent text-accent" : ""}`} aria-hidden />
+                {feedback === "Watching" ? "Watching" : "Keep watching"}
               </button>
               <button
                 disabled={saving}
                 onClick={() => toggle("NotForMe")}
-                className={`hidden rounded-2xl border px-4 py-3.5 text-sm sm:block ${feedback === "NotForMe" ? "border-line bg-raised text-text" : "border-line text-muted hover:text-text"}`}
+                className={`hidden items-center gap-2 rounded-2xl border px-4 py-3.5 text-sm transition sm:inline-flex ${feedback === "NotForMe" ? "border-hairline bg-white/5 text-text" : "border-hairline text-muted hover:border-white/20 hover:text-text"}`}
               >
-                {feedback === "NotForMe" ? "Hidden · undo" : "✕ Not for me"}
+                <X className="size-4" aria-hidden />
+                {feedback === "NotForMe" ? "Hidden · undo" : "Not for me"}
               </button>
             </>
           ) : (
