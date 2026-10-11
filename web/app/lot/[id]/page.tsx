@@ -15,6 +15,7 @@ import { Countdown } from "@/components/Countdown";
 import { CarDiagram, SEVERITY_COLOUR } from "@/components/CarDiagram";
 import { PriceChart, type ChartPoint } from "@/components/PriceChart";
 import { BidBar } from "@/components/BidBar";
+import { MarketMeter } from "@/components/MarketMeter";
 import { damageSeverity } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Lot" };
@@ -53,6 +54,7 @@ async function Lot({ id }: { id: string }) {
         <div className="min-w-0 space-y-4">
           <Header lot={lot} />
           <PriceCards lot={lot} />
+          {lot.market && <MarketMeter meter={lot.market} />}
           {lot.sheet?.redFlags.some((f) => f.severity === "High") && <RedFlags lot={lot} />}
           {lot.auctionEndsAt && <AuctionCard lot={lot} />}
           {lot.eligibility && <Eligibility lot={lot} />}

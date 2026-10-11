@@ -79,6 +79,20 @@ public sealed class ApiTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_lot_with_too_little_market_history_has_no_meter_and_the_scan_can_come_back_empty()
+    {
+        var id = await SeedLotAsync(); // one car, seen long ago: nothing honest to say
+
+        var lot = await _http.GetFromJsonAsync<JsonElement>($"/api/lots/{id}");
+        Assert.Equal(JsonValueKind.Null, lot.GetProperty("market").ValueKind);
+
+        var picks = await _http.GetFromJsonAsync<JsonElement>("/api/market/picks");
+        Assert.Equal(JsonValueKind.Null, picks.GetProperty("steal").ValueKind);
+        Assert.Equal(0, picks.GetProperty("cheapNow").GetArrayLength());
+        Assert.Contains("not sale prices", picks.GetProperty("basis").GetString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Unknown_lot_is_404()
     {
         Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync($"/api/lots/{Guid.NewGuid()}")).StatusCode);

@@ -54,6 +54,25 @@ export type ImportEligibility = {
   links: { label: string; url: string }[];
   rulesCheckedOn: string;
 };
+export type MarketMeter = {
+  name: string;
+  currency: string;
+  cars: number;
+  typical: number;
+  low: number;
+  high: number;
+  spread: number[];
+  weeks: { weekOf: string; typical: number; cars: number }[];
+  trendPercent: number | null;
+  onAuctionNow: number;
+  since: string;
+  this: number | null;
+  signal: "Below" | "About" | "Above" | null;
+  vsTypicalPercent: number | null;
+  summary: string;
+};
+export type MarketPick = { lot: LotCard; group: string; typical: Money; percentUnder: number; cars: number; biddingOpen: boolean };
+export type MarketPicks = { month: string; steal: MarketPick | null; cheapNow: MarketPick[]; scannedAt: string; basis: string };
 export type PricePoint = { observedAt: string; price: Money; kind: string };
 
 export type LotView = {
@@ -80,6 +99,7 @@ export type LotView = {
   landed: LandedEstimate | null;
   eligibility: ImportEligibility | null;
   deal: DealScore | null;
+  market: MarketMeter | null;
   sheet: SheetReport | null;
   photos: string[];
   sheetImage: string | null;
@@ -129,6 +149,8 @@ async function get<T>(path: string): Promise<T | null> {
 
 export const getLot = (id: string) => get<LotView>(`/api/lots/${encodeURIComponent(id)}`);
 export const getMatches = async () => (await get<LotCard[]>("/api/matches?limit=24")) ?? [];
+// The market scan is the same for everyone and cached by the API, so a failure just hides the section.
+export const getMarketPicks = () => get<MarketPicks>("/api/market/picks").catch(() => null);
 export const getWatchlists = async () => (await get<WatchlistSummary[]>("/api/watchlists")) ?? [];
 
 // ---- Signed-in calls: the user's Supabase access token goes to Mitsuke.Api, which verifies it. ----
@@ -167,5 +189,7 @@ export const getMyWatchlists = async (token: string) => (await getAs<MyWatchlist
 export type CloseMatch = { lot: LotCard; missesBy: string[] };
 export const getMyCloseMatches = async (token: string, watchlistId: string) =>
   (await getAs<CloseMatch[]>(token, `/api/me/watchlists/${encodeURIComponent(watchlistId)}/close-matches`)) ?? [];
+export const getMyWatchlistMarket = (token: string, watchlistId: string) =>
+  getAs<MarketMeter>(token, `/api/me/watchlists/${encodeURIComponent(watchlistId)}/market`).catch(() => null);
 export const getMyMatches = async (token: string) => (await getAs<LotCard[]>(token, "/api/me/matches")) ?? [];
 export const getMyFeedback = (token: string, lotId: string) => getAs<LotFeedback>(token, `/api/me/lots/${encodeURIComponent(lotId)}/feedback`);

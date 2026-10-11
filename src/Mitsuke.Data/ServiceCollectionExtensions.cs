@@ -54,6 +54,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFeedbackStore, PostgresFeedbackStore>();
         services.AddSingleton<IPushSubscriptionStore, PostgresPushSubscriptionStore>();
         services.AddSingleton<ICatalogStore, PostgresCatalogStore>();
+        services.AddSingleton<IMarketStore, PostgresMarketStore>();
         return services;
     }
 }

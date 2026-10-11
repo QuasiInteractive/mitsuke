@@ -212,11 +212,11 @@ export function WatchlistForm({
 
       {!initial && (
         <section>
-          <p className="label">Start from a classic</p>
+          <p className="label flex items-center gap-2"><span className="size-1.5 rounded-full bg-accent shadow-[0_0_8px_var(--color-accent)]" /> Start from a classic</p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
             {CLASSICS.map((c) => (
               <button key={c.label} type="button" onClick={() => pickClassic(c)} aria-pressed={picked === c.label} className="tile">
-                <span className="text-sm font-semibold">{c.label}</span>
+                <span className="font-display text-sm font-extrabold italic">{c.label}</span>
                 <span className="text-xs text-faint">{c.sub}</span>
               </button>
             ))}
@@ -225,10 +225,7 @@ export function WatchlistForm({
       )}
 
       <section className="card p-6 sm:p-7">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold">The car</h2>
-          {make && model && <p className="text-xs text-faint">{models.find((m) => m.name === model)?.lots ?? 0} at auction now</p>}
-        </div>
+        <StepHead n="01" title="The car" aside={make && model ? `${models.find((m) => m.name === model)?.lots ?? 0} at auction now` : undefined} />
 
         <div className="mt-5 grid gap-5 sm:grid-cols-2">
           <label className="block">
@@ -305,7 +302,7 @@ export function WatchlistForm({
       </section>
 
       <section className="card p-6 sm:p-7">
-        <h2 className="text-lg font-semibold">Your limits</h2>
+        <StepHead n="02" title="Your limits" />
 
         <div className="mt-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
@@ -400,7 +397,8 @@ export function WatchlistForm({
       </section>
 
       <section className="card p-6 sm:p-7">
-        <label className="block">
+        <StepHead n="03" title="Name it" />
+        <label className="mt-5 block">
           <span className="label">Name this watchlist</span>
           <input
             name="name"
@@ -419,10 +417,23 @@ export function WatchlistForm({
       </section>
 
       {state?.message && <p className="text-sm text-accent">{state.message}</p>}
-      <button disabled={pending} className="btn-primary w-full py-5 text-lg">
+      <button disabled={pending} className="btn-primary underglow w-full py-5 font-display text-lg italic uppercase tracking-wide">
         {pending ? "Saving…" : <>{submitLabel} <span aria-hidden>→</span></>}
       </button>
       <p className="-mt-4 text-center text-xs text-faint">Mitsuke checks the auctions every ten minutes and alerts you the moment one fits.</p>
     </form>
+  );
+}
+
+/** A numbered step, in the family's italic display face: 01 The car, 02 Your limits, 03 Name it. */
+function StepHead({ n, title, aside }: { n: string; title: string; aside?: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3 border-b border-hairline pb-4">
+      <h2 className="flex items-baseline gap-3">
+        <span className="figure glow-red text-2xl">{n}</span>
+        <span className="font-display text-xl font-black tracking-tight uppercase italic">{title}</span>
+      </h2>
+      {aside && <p className="text-xs text-faint">{aside}</p>}
+    </div>
   );
 }
