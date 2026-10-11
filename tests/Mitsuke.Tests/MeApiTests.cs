@@ -352,4 +352,29 @@ public sealed class MeApiTests(PostgresFixture pg) : IAsyncLifetime
         await _http.SendAsync(As(Alice, HttpMethod.Delete, $"/api/me/lots/{listingId}/feedback"));
         Assert.Equal(1, await MatchCount());
     }
+
+    [Fact]
+    public async Task A_watchlist_lists_its_own_matches_and_counts_a_lot_listed_twice_once()
+    {
+        var r32 = await CreateAsync(Alice, R32());
+        var other = await CreateAsync(Alice, R32("Another R32"));
+        var store = new PostgresListingStore(pg.Db);
+        var ends = new DateTimeOffset(2026, 10, 14, 15, 0, 0, TimeSpan.Zero);
+        Listing Copy(string id, Money? price) => Fixtures.Gtr(b => b.Price = price) with
+            { Key = new ListingKey("thecarapi-japan", id), LotNumber = "58212", AuctionEndsAt = ends };
+        var unpriced = (await store.UpsertAsync(Copy("a", null))).ListingId;
+        var priced = (await store.UpsertAsync(Copy("b", new Money(3_000_000m, "JPY")))).ListingId;
+        var elsewhere = (await store.UpsertAsync(Fixtures.Gtr() with { Key = new ListingKey("thecarapi-japan", "c") })).ListingId;
+        var alerts = new PostgresAlertLog(pg.Db);
+        foreach (var (w, l) in new[] { (r32, unpriced), (r32, priced), (other, elsewhere) })
+            await alerts.MarkSentAsync((await alerts.TryClaimAsync(w, l, "test"))!.Value);
+
+        var cards = await (await _http.SendAsync(As(Alice, HttpMethod.Get, $"/api/me/watchlists/{r32}/matches"))).Content.ReadFromJsonAsync<JsonElement>();
+        var card = Assert.Single(cards.EnumerateArray());                   // one car, not two copies, and not the other watchlist's
+        Assert.Equal(priced, card.GetProperty("id").GetGuid());              // shown as its priced copy
+
+        var lists = await (await _http.SendAsync(As(Alice, HttpMethod.Get, "/api/me/watchlists"))).Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(1, lists.EnumerateArray().Single(w => w.GetProperty("watchlist").GetProperty("id").GetGuid() == r32).GetProperty("matchCount").GetInt32());
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.SendAsync(As(Bob, HttpMethod.Get, $"/api/me/watchlists/{r32}/matches"))).StatusCode);
+    }
 }

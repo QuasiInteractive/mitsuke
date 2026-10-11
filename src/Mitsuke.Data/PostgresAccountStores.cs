@@ -31,9 +31,15 @@ public sealed class PostgresUserWatchlistStore(NpgsqlDataSource db, IWatchlistSt
     {
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
         var rows = await conn.QueryAsync<(Guid Id, int Matches, DateTime? Last)>("""
-            select w.id, count(distinct a.listing_id)::int, max(coalesce(a.sent_at, a.created_at))
+            -- Cars, not listings: one lot listed twice (ListingIdentity) counts once.
+            select w.id, count(distinct coalesce(
+                case when l.lot_number <> '' and l.auction_ends_at is not null then concat_ws('|',
+                    ((l.auction_ends_at at time zone 'Asia/Tokyo') - interval '1 second')::date, trim(l.lot_number),
+                    upper(coalesce(l.model_code, '')), l.year, l.mileage_km) end,
+                l.id::text))::int, max(coalesce(a.sent_at, a.created_at))
             from watchlists w
             left join alerts a on a.watchlist_id = w.id and a.status = 'sent'
+            left join listings l on l.id = a.listing_id
             where w.user_id = @userId
             group by w.id, w.created_at
             order by w.created_at

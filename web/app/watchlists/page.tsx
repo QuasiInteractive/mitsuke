@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CalendarRange, Gauge, Pause, Pencil, Play, Plus, Star, Trash2, Wallet, Radar, type LucideIcon } from "lucide-react";
 import { getUser } from "@/lib/supabase/server";
-import { getMyCloseMatches, getMyWatchlistMarket, getMyWatchlists, type MyWatchlist } from "@/lib/api";
+import { getMyCloseMatches, getMyWatchlistMarket, getMyWatchlistMatches, getMyWatchlists, type LotCard, type MyWatchlist } from "@/lib/api";
 import { day, km, money } from "@/lib/format";
 import { deleteWatchlist, setWatchlistActive } from "@/app/actions";
 import { PushToggle } from "@/components/PushToggle";
@@ -108,6 +108,12 @@ function Row({ item, token }: { item: MyWatchlist; token: string }) {
           </div>
         </div>
 
+        {item.matchCount > 0 && (
+          <Suspense fallback={<div className="mt-6 h-56 animate-pulse rounded-2xl bg-white/[0.03]" />}>
+            <Matches id={w.id} token={token} />
+          </Suspense>
+        )}
+
         <Suspense fallback={<div className="mt-5 h-24 animate-pulse rounded-2xl bg-white/[0.03]" />}>
           <Market id={w.id} token={token} />
         </Suspense>
@@ -132,6 +138,77 @@ function Row({ item, token }: { item: MyWatchlist; token: string }) {
         </div>
       </div>
     </section>
+  );
+}
+
+/** Today (or a day ahead) in Japan as YYYY-MM-DD: auction days are Japanese dates. Server-rendered per request. */
+function jstDay(offsetDays: number): string {
+  return new Date(Date.now() + 9 * 3600_000 + offsetDays * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Where a lot is in its life: bids close about a day before the auction day (Japan). */
+function status(card: LotCard, today: string, tomorrow: string): { text: string; tone: string; open: boolean } {
+  if (!card.auctionDay) return { text: "Date to come", tone: "text-faint", open: true };
+  if (card.auctionDay < today) return { text: "Auction over", tone: "text-faint", open: false };
+  if (card.auctionDay <= tomorrow) return { text: "Bidding closed", tone: "text-amber", open: false };
+  return { text: "Bids open", tone: "text-good", open: true };
+}
+
+/** The cars this watchlist has alerted on, still-open ones first. */
+async function Matches({ id, token }: { id: string; token: string }) {
+  const cards = await getMyWatchlistMatches(token, id);
+  if (!cards || cards.length === 0) return null;
+  const [today, tomorrow] = [jstDay(0), jstDay(1)];
+  const rows = cards.map((c) => ({ c, s: status(c, today, tomorrow) }));
+  rows.sort((a, b) => Number(b.s.open) - Number(a.s.open));
+  const open = rows.filter((r) => r.s.open).length;
+
+  return (
+    <div className="mt-6">
+      <p className="label">
+        Your matches · <span className="text-good">{open} open for bids</span>
+        {rows.length > open && <span className="text-faint"> · {rows.length - open} gone to auction</span>}
+      </p>
+      <div className="no-scrollbar -mx-1 mt-3 flex gap-4 overflow-x-auto px-1 pb-2">
+        {rows.map(({ c, s }) => (
+          <Link
+            key={c.id}
+            href={`/lot/${c.id}`}
+            className={`group w-72 shrink-0 overflow-hidden rounded-2xl border bg-black/30 transition duration-200 hover:-translate-y-0.5 ${s.open ? "border-accent/40 hover:border-accent" : "border-hairline opacity-70 hover:opacity-100"}`}
+          >
+            <div className="relative aspect-[16/10] bg-raised">
+              <div className="grid-bg absolute inset-0 opacity-60" aria-hidden />
+              {c.photo && (
+                // Empty alt: once the auction's over the photo is often removed; then nothing shows rather than a broken icon.
+                // eslint-disable-next-line @next/next/no-img-element -- auction photos come from the provider's CDN
+                <img src={c.photo} alt="" className="absolute inset-0 size-full object-cover opacity-90 transition group-hover:opacity-100" loading="lazy" />
+              )}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+              {c.dealScore != null && (
+                <span className={`tabular absolute top-3 right-3 rounded-full px-2.5 py-1 text-xs font-bold backdrop-blur ${c.dealScore >= 80 ? "bg-accent text-white" : "bg-black/60 text-white/90"}`}>
+                  {c.dealScore}/100
+                </span>
+              )}
+              <div className="absolute inset-x-3 bottom-2.5">
+                <p className="truncate font-semibold">{c.title}</p>
+                <p className="text-xs text-white/65">
+                  {[c.mileageKm != null && km(c.mileageKm), c.grade && `grade ${c.grade}`, c.auctionDay && day(c.auctionDay)].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-end justify-between p-3.5">
+              <p className="figure text-2xl">
+                {money(c.landedTotal)} <span className="font-sans text-xs font-normal text-faint not-italic">landed</span>
+              </p>
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${s.tone}`}>
+                <span className={`size-1.5 rounded-full ${s.open ? "animate-pulse bg-good" : "bg-current"}`} />
+                {s.text}
+              </span>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }
 
