@@ -45,5 +45,12 @@ public interface IAlertLog
     /// day, lot number, chassis code, year and mileage; see <see cref="ListingIdentity"/>). The feed's second copy
     /// often turns up a run later, so the collector's own one-copy rule can't catch it.
     /// </summary>
+    /// <summary>
+    /// Of <paramref name="listingIds"/>, the ones this watchlist has already been told about on every channel it tried
+    /// (all sent, nothing failed or in flight). The collector skips these instead of queueing them again every run.
+    /// </summary>
+    Task<IReadOnlySet<Guid>> GetSettledAsync(Guid watchlistId, IReadOnlyCollection<Guid> listingIds, CancellationToken cancellationToken = default) =>
+        Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
+
     Task<bool> AlertedOtherCopyAsync(Guid watchlistId, Guid listingId, CancellationToken cancellationToken = default) => Task.FromResult(false);
 }

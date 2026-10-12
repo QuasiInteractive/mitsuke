@@ -19,7 +19,9 @@ var builder = FunctionsApplication.CreateBuilder(args);
 builder.ConfigureFunctionsWebApplication();
 
 // Settings come from local.settings.json locally and app settings / Key Vault references in Azure.
-builder.Services.AddMitsukeData(builder.Configuration["MITSUKE_DB"] ?? "");
+// Connection budget for Supabase's session pooler (15 in total): API 4 + up to 4 pipeline instances x 2 = 12,
+// leaving room for a deploy's migration and the dashboard. infra/main.bicep caps the instances to match.
+builder.Services.AddMitsukeData(builder.Configuration["MITSUKE_DB"] ?? "", maxPoolSize: 2);
 builder.Services.AddMitsukePricing();
 builder.Services.AddTheCarApiSource(builder.Configuration);
 builder.Services.AddMitsukeNotifications(builder.Configuration);
