@@ -39,9 +39,10 @@ param smtpUser string
 @description('Web Push VAPID public key (not a secret; browsers get it too). Empty turns phone notifications off. The private key is the Key Vault secret vapid-private-key.')
 param vapidPublicKey string = ''
 
-@description('Upper limit on pipeline instances. The main protection against a runaway bill.')
-@minValue(40)
-param maxInstances int = 40
+@description('Upper limit on pipeline instances: guards the bill and the database. Each instance holds up to 2 connections and Supabase allows 15 in total (src/Mitsuke.Functions/Program.cs); 40 let it reach 39 and run out (11 Oct 2026).')
+@minValue(1)
+@maxValue(5)
+param maxInstances int = 4
 
 @description('Daily cap on log ingestion in GB.')
 param logDailyCapGb string = '0.1'

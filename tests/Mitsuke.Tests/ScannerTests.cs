@@ -87,6 +87,25 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Delivered_matches_are_not_queued_again_but_failed_ones_are()
+    {
+        _source.Lots = [Lot("gtr-1"), Lot("gtr-2")];
+        var watchlist = (await new PostgresWatchlistStore(pg.Db).GetActiveAsync()).Single();
+        var log = new PostgresAlertLog(pg.Db);
+        var collector = new Collector([_source], new PostgresListingStore(pg.Db), Landed.Estimator, new FakeTimeProvider(Now),
+            NullLogger<Collector>.Instance, log);
+
+        var first = await collector.CollectAsync(watchlist);
+        Assert.Equal(2, first.Matches.Count);
+        await log.MarkSentAsync((await log.TryClaimAsync(watchlist.Id, first.Matches[0].ListingId, "test"))!.Value);
+        await log.MarkFailedAsync((await log.TryClaimAsync(watchlist.Id, first.Matches[1].ListingId, "test"))!.Value, "push down");
+
+        var second = await collector.CollectAsync(watchlist);
+        var again = Assert.Single(second.Matches);                    // the delivered one isn't queued again...
+        Assert.Equal(first.Matches[1].ListingId, again.ListingId);   // ...the failed one is, so it gets retried
+    }
+
+    [Fact]
     public async Task One_lot_listed_twice_is_alerted_once_through_its_priced_copy()
     {
         var unpriced = Lot("copy-a") with { LotNumber = "58212", Price = null };

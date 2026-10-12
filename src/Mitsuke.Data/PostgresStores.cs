@@ -313,6 +313,19 @@ public sealed class PostgresAlertLog(NpgsqlDataSource db) : IAlertLog
             """, new { watchlistId, listingId, channel, expiry = ClaimExpiry });
     }
 
+    public async Task<IReadOnlySet<Guid>> GetSettledAsync(Guid watchlistId, IReadOnlyCollection<Guid> listingIds, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(listingIds);
+        if (listingIds.Count == 0) return new HashSet<Guid>();
+        await using var conn = await db.OpenConnectionAsync(cancellationToken);
+        return (await conn.QueryAsync<Guid>("""
+            select listing_id from alerts
+            where watchlist_id = @watchlistId and listing_id = any(@ids)
+            group by listing_id
+            having bool_and(status = 'sent')
+            """, new { watchlistId, ids = listingIds.ToArray() })).ToHashSet();
+    }
+
     public async Task<bool> AlertedOtherCopyAsync(Guid watchlistId, Guid listingId, CancellationToken cancellationToken = default)
     {
         await using var conn = await db.OpenConnectionAsync(cancellationToken);

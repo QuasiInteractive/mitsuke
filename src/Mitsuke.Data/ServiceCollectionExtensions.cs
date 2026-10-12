@@ -20,12 +20,12 @@ public static class ServiceCollectionExtensions
     /// pipeline instance; Npgsql's default of 100 per process let one busy page exhaust it (8 Oct 2026). An explicit
     /// "Maximum Pool Size" in the connection string still wins.
     /// </summary>
-    internal static string WithPoolCap(string connectionString)
+    internal static string WithPoolCap(string connectionString, int maxPoolSize = DefaultMaxPoolSize)
     {
         var builder = new NpgsqlConnectionStringBuilder(connectionString);
         if (!connectionString.Contains("Maximum Pool Size", StringComparison.OrdinalIgnoreCase)
             && !connectionString.Contains("MaxPoolSize", StringComparison.OrdinalIgnoreCase))
-            builder.MaxPoolSize = DefaultMaxPoolSize;
+            builder.MaxPoolSize = maxPoolSize;
         if (!connectionString.Contains("Idle Lifetime", StringComparison.OrdinalIgnoreCase))
         {
             builder.ConnectionIdleLifetime = DefaultIdleLifetimeSeconds;
@@ -34,12 +34,13 @@ public static class ServiceCollectionExtensions
         return builder.ConnectionString;
     }
 
-    public static IServiceCollection AddMitsukeData(this IServiceCollection services, string connectionString)
+    /// <param name="maxPoolSize">Connections per process. The pipeline runs on several instances at once, so it takes fewer.</param>
+    public static IServiceCollection AddMitsukeData(this IServiceCollection services, string connectionString, int maxPoolSize = DefaultMaxPoolSize)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
             throw new InvalidOperationException("MITSUKE_DB is not set. See .env.example.");
 
-        services.AddSingleton(_ => NpgsqlDataSource.Create(WithPoolCap(connectionString)));
+        services.AddSingleton(_ => NpgsqlDataSource.Create(WithPoolCap(connectionString, maxPoolSize)));
         services.AddSingleton<Migrator>();
         services.AddSingleton<IListingStore, PostgresListingStore>();
         services.AddSingleton<IWatchlistStore, PostgresWatchlistStore>();

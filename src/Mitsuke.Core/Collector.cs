@@ -22,7 +22,8 @@ public sealed partial class Collector(
     IListingStore listings,
     ILandedCostEstimator landedCost,
     TimeProvider clock,
-    ILogger<Collector> logger)
+    ILogger<Collector> logger,
+    IAlertLog? alerts = null)
 {
     public async Task<CollectResult> CollectAsync(Watchlist watchlist, CancellationToken cancellationToken = default)
     {
@@ -67,6 +68,19 @@ public sealed partial class Collector(
                 // Already-alerted matches are emitted too: the alert log's claim, not the collector, is what
                 // guarantees once-only delivery, so a lost queue message can never mean a lost alert.
                 matches.Add(new AlertRequest(watchlist.Id, listingId));
+            }
+        }
+
+        // Every run sees every car that ever matched. Queueing all of them again made thousands of no-op SendAlert runs
+        // a day, and that queue is what Azure scales the pipeline on (11 Oct 2026: up to 39 instances, exhausting the
+        // database's 15 connections). Only matches not yet delivered go on; a failed or unfinished one still does.
+        if (alerts is not null && matches.Count > 0)
+        {
+            var settled = await alerts.GetSettledAsync(watchlist.Id, matches.Select(m => m.ListingId).ToList(), cancellationToken);
+            if (settled.Count > 0)
+            {
+                matches.RemoveAll(m => settled.Contains(m.ListingId));
+                rejected["already alerted"] = settled.Count;
             }
         }
 
