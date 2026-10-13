@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Mitsuke.Core;
 
 /// <summary>One car's opening bid in one week it was at auction (relists count again in later weeks).</summary>
-public sealed record MarketSample(DateOnly Seen, decimal Amount, bool OnAuctionNow);
+public sealed record MarketSample(DateOnly Seen, decimal Amount, bool OnAuctionNow, string? Transmission = null);
 
 /// <summary>A week of the market: the typical (median) opening bid and how many cars were offered.</summary>
 public sealed record MarketWeek(DateOnly WeekOf, decimal Typical, int Cars);
@@ -67,10 +67,21 @@ public static class MarketMeters
     private const int SpreadCap = 80;
 
     /// <returns>Null when there are too few cars to say anything honest.</returns>
-    public static MarketMeter? Build(string name, string currency, IReadOnlyList<MarketSample> samples, decimal? thisPrice = null)
+    /// <param name="transmission">The lot's gearbox: when known (and enough cars share it), only cars with the same
+    /// gearbox, or an unknown one, are counted, and the name says so ("NA1 automatic").</param>
+    public static MarketMeter? Build(string name, string currency, IReadOnlyList<MarketSample> samples, decimal? thisPrice = null, string? transmission = null)
     {
         ArgumentNullException.ThrowIfNull(samples);
         var priced = samples.Where(s => s.Amount > 0).ToList();
+        if (Gearbox.Class(transmission) is { } gearbox)
+        {
+            var same = priced.Where(s => !Gearbox.Differ(transmission, s.Transmission)).ToList();
+            if (same.Count >= MinimumCars && same.Count < priced.Count)
+            {
+                priced = same;
+                name = $"{name} {gearbox}";
+            }
+        }
         if (priced.Count < MinimumCars) return null;
 
         var amounts = priced.Select(s => s.Amount).Order().ToList();

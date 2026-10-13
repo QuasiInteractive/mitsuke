@@ -3,7 +3,7 @@ using System.Globalization;
 namespace Mitsuke.Core;
 
 /// <summary>Another car's price, used to judge whether a listing is good value.</summary>
-public sealed record Comparable(ListingKey Key, int? Year, int? MileageKm, decimal? GradeScore, bool IsRepaired, Money Price);
+public sealed record Comparable(ListingKey Key, int? Year, int? MileageKm, decimal? GradeScore, bool IsRepaired, Money Price, string? Transmission = null);
 
 public enum ScoreConfidence
 {
@@ -63,6 +63,12 @@ public static class DealScorer
             return NoScore("No price to compare", 0, name);
 
         var sameCurrency = candidates.Where(c => c.Price.Currency == price.Currency && c.Price.Amount > 0).ToList();
+        // Manual against manual, automatic against automatic, when that still leaves enough cars to say anything.
+        var gearbox = Gearbox.Class(subject.Transmission);
+        var sameGearbox = sameCurrency.Where(c => !Gearbox.Differ(subject.Transmission, c.Transmission)).ToList();
+        if (gearbox is not null && sameGearbox.Count >= MinimumComparables) sameCurrency = sameGearbox;
+        else gearbox = null;
+        if (gearbox is not null) name = $"{gearbox} {name}";
         var tight = sameCurrency.Where(c => IsTightMatch(subject, c)).ToList();
         var useTight = tight.Count >= TightEnough;
         var comps = useTight ? tight : sameCurrency;

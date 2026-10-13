@@ -16,7 +16,7 @@ public sealed class PostgresComparablesStore(NpgsqlDataSource db) : IComparables
         var rows = await conn.QueryAsync<Row>("""
             select distinct on (coalesce(l.vehicle_id, l.id))
                    l.source as Source, l.source_id as SourceId, l.year as Year, l.mileage_km as MileageKm,
-                   l.grade_score as GradeScore, l.grade_repaired as IsRepaired,
+                   l.grade_score as GradeScore, l.grade_repaired as IsRepaired, l.transmission as Transmission,
                    p.amount as Amount, p.currency as Currency
             from listings l
             join lateral (
@@ -45,7 +45,7 @@ public sealed class PostgresComparablesStore(NpgsqlDataSource db) : IComparables
         });
 
         return rows.Select(r => new Comparable(
-            new ListingKey(r.Source, r.SourceId), r.Year, r.MileageKm, r.GradeScore, r.IsRepaired, new Money(r.Amount, r.Currency.Trim())))
+            new ListingKey(r.Source, r.SourceId), r.Year, r.MileageKm, r.GradeScore, r.IsRepaired, new Money(r.Amount, r.Currency.Trim()), r.Transmission))
             .ToList();
     }
 
@@ -57,6 +57,7 @@ public sealed class PostgresComparablesStore(NpgsqlDataSource db) : IComparables
         public int? MileageKm { get; init; }
         public decimal? GradeScore { get; init; }
         public bool IsRepaired { get; init; }
+        public string? Transmission { get; init; }
         public decimal Amount { get; init; }
         public string Currency { get; init; } = "";
     }

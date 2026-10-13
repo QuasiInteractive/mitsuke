@@ -27,10 +27,11 @@ public sealed class PostgresMarketStore(NpgsqlDataSource db) : IMarketStore
         ArgumentNullException.ThrowIfNull(scope);
         await using var conn = await db.OpenConnectionAsync(cancellationToken);
         var codes = scope.ModelCodes.Select(c => c.ToUpperInvariant()).ToArray();
-        var rows = await conn.QueryAsync<(DateTime Seen, decimal Amount, bool OnNow)>($"""
+        var rows = await conn.QueryAsync<(DateTime Seen, decimal Amount, bool OnNow, string? Transmission)>($"""
             select distinct on ({CarKey}, date_trunc('week', l.first_seen_at at time zone 'Asia/Tokyo'))
                    (l.first_seen_at at time zone 'Asia/Tokyo')::date as seen, p.amount,
-                   (l.last_seen_at > @now - interval '2 days' and (l.auction_ends_at is null or l.auction_ends_at > @now)) as on_now
+                   (l.last_seen_at > @now - interval '2 days' and (l.auction_ends_at is null or l.auction_ends_at > @now)) as on_now,
+                   l.transmission
             from listings l
             {LatestYen}
             where lower(l.make) = lower(@make)
@@ -41,7 +42,7 @@ public sealed class PostgresMarketStore(NpgsqlDataSource db) : IMarketStore
             order by {CarKey}, date_trunc('week', l.first_seen_at at time zone 'Asia/Tokyo'), l.last_seen_at desc
             """, new { make = scope.Make, model = scope.Model, codes = PgArray.Of(codes), yearFrom = scope.YearFrom, yearTo = scope.YearTo,
                 since = since.ToUniversalTime(), now = now.ToUniversalTime() }); // Npgsql writes timestamptz from UTC only
-        return rows.Select(r => new MarketSample(DateOnly.FromDateTime(r.Seen), r.Amount, r.OnNow)).ToList();
+        return rows.Select(r => new MarketSample(DateOnly.FromDateTime(r.Seen), r.Amount, r.OnNow, r.Transmission)).ToList();
     }
 
     public async Task<IReadOnlyList<MarketCandidate>> ScanAsync(DateTimeOffset since, DateTimeOffset now, int limit, CancellationToken cancellationToken = default)
