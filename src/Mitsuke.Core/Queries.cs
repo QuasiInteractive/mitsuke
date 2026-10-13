@@ -15,6 +15,9 @@ public interface IReadQueries
 {
     Task<IReadOnlyList<PricePoint>> GetPriceHistoryAsync(Guid listingId, CancellationToken cancellationToken = default);
 
+    /// <summary>When the lot was first and last seen, and the same car (by chassis number) at later auctions, soonest first.</summary>
+    Task<LotSightings?> GetSightingsAsync(Guid listingId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<MatchSummary>> GetRecentMatchesAsync(Guid? watchlistId, int limit, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<WatchlistSummary>> GetWatchlistSummariesAsync(CancellationToken cancellationToken = default);
