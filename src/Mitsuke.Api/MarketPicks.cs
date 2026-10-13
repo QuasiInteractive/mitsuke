@@ -22,9 +22,10 @@ public sealed class MarketPicksBuilder(IMarketStore market, IListingStore listin
 {
     private static readonly TimeSpan CacheFor = TimeSpan.FromMinutes(15);
     private const int MinimumDealScore = 70;
+    private const int MinimumPercentUnder = 15;
 
     public static readonly string Basis =
-        "Opening bids against the typical opening bid for the same chassis code over the last 12 weeks, " +
+        "Opening bids against the typical opening bid for the same chassis code and gearbox, similar age, mileage and grade, " +
         "grade 3.5 or better, not repaired, not high mileage for the model. Opening bids, not sale prices.";
 
     public async Task<MarketPicks> GetAsync(string destination, CancellationToken cancellationToken) =>
@@ -46,12 +47,18 @@ public sealed class MarketPicksBuilder(IMarketStore market, IListingStore listin
             if (await listings.GetAsync(c.ListingId, cancellationToken) is not { } listing) continue;
             var deal = DealScorer.Score(listing, await comparables.GetCandidatesAsync(listing, cancellationToken: cancellationToken));
             if (deal.Score is not { } score || score < MinimumDealScore) continue; // cheap for the code, not for its spec
+            // The scan's typical mixes manuals and automatics; the deal score compares like with like, so its typical
+            // is the honest one to quote: an automatic opening at an automatic's usual price is no steal.
+            if (deal.Typical is not { } typical || listing.Price is not { } price || typical.Amount <= 0) continue;
+            var under = (int)Math.Round(100m * (1m - price.Amount / typical.Amount), MidpointRounding.AwayFromZero);
+            if (under < MinimumPercentUnder) continue;
+            var gearbox = Gearbox.Class(listing.Transmission);
+            var group = gearbox is null ? c.Group : $"{gearbox} {c.Group}";
 
             if (await lots.CardsAsync([new MatchSummary(c.ListingId, Guid.Empty, c.Group, c.FirstSeenAt)], destination, cancellationToken)
                 is not [var card]) continue;
             var open = listing.AuctionEndsAt is not { } ends || ends - TimeSpan.FromDays(1) > now;
-            var under = (int)Math.Round(100m * (1m - c.Amount / c.Typical), MidpointRounding.AwayFromZero);
-            picks.Add(new MarketPick(card, c.Group, new Money(Math.Round(c.Typical / 10_000m) * 10_000m, "JPY"), under, c.Cars, open));
+            picks.Add(new MarketPick(card, group, new Money(Math.Round(typical.Amount / 10_000m) * 10_000m, "JPY"), under, deal.ComparableCount, open));
             if (picks.Count(p => p.BiddingOpen) >= 6 && picks.Count >= 8) break;
         }
 

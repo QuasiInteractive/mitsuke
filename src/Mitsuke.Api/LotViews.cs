@@ -82,11 +82,11 @@ public sealed class LotViewBuilder(
     public static readonly TimeSpan MarketWindow = TimeSpan.FromDays(84);
 
     /// <summary>The market meter for any scope, optionally placing one price in it. Null with too few cars.</summary>
-    public async Task<MarketMeter?> MarketAsync(MarketScope scope, decimal? thisPrice, CancellationToken cancellationToken)
+    public async Task<MarketMeter?> MarketAsync(MarketScope scope, decimal? thisPrice, CancellationToken cancellationToken, string? transmission = null)
     {
         ArgumentNullException.ThrowIfNull(scope);
         var now = clock.GetUtcNow();
-        return MarketMeters.Build(scope.Name, "JPY", await market.GetSamplesAsync(scope, now - MarketWindow, now, cancellationToken), thisPrice);
+        return MarketMeters.Build(scope.Name, "JPY", await market.GetSamplesAsync(scope, now - MarketWindow, now, cancellationToken), thisPrice, transmission);
     }
 
     public async Task<LotView?> BuildAsync(Guid listingId, string destination, CancellationToken cancellationToken)
@@ -128,7 +128,7 @@ public sealed class LotViewBuilder(
             Landed = landed,
             Eligibility = await eligibility.CheckAsync(listing, destination, sheet?.Modifications, cancellationToken),
             Deal = deal,
-            Market = await MarketAsync(MarketScope.For(listing), listing.Price is { Currency: "JPY" } yen ? yen.Amount : null, cancellationToken),
+            Market = await MarketAsync(MarketScope.For(listing), listing.Price is { Currency: "JPY" } yen ? yen.Amount : null, cancellationToken, listing.Transmission),
             Sheet = sheet,
             // The full gallery when we have it, otherwise the search preview.
             Photos = detail?.PhotoUrls.Count > 0 ? detail.PhotoUrls : listing.PhotoUrls,

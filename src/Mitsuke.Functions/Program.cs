@@ -37,10 +37,15 @@ if (Uri.TryCreate(builder.Configuration["MITSUKE_WEB_URL"], UriKind.Absolute, ou
 // Traces, metrics and logs to Application Insights when it's configured (in Azure); nothing locally.
 if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
 {
+    // Traces (requests, dependencies) and logs only, no metrics: nothing charts the pipeline's metrics, and every
+    // instance sent dozens of runtime gauges a minute (dotnet.*, kestrel.*, health checks), which filled the
+    // 0.1 GB/day cap by mid-afternoon (12 Oct 2026) and hid the logs that matter.
     builder.Services.AddOpenTelemetry()
         .UseFunctionsWorkerDefaults()
-        .WithTracing(t => t.AddHttpClientInstrumentation()) // TheCarApi, Kensa-ya, Discord, push: as dependencies
-        .UseAzureMonitorExporter();
+        .WithTracing(t => t
+            .AddHttpClientInstrumentation() // TheCarApi, Kensa-ya, Discord, push: as dependencies
+            .AddAzureMonitorTraceExporter())
+        .WithLogging(l => l.AddAzureMonitorLogExporter());
     builder.Services.AddMitsukeTelemetryRules();
 }
 
