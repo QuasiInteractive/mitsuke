@@ -93,6 +93,23 @@ public sealed class ApiTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Max_bid_runs_the_landed_cost_backwards_and_the_lot_view_tracks_the_car()
+    {
+        var id = await SeedLotAsync();
+
+        var r = await _http.GetFromJsonAsync<JsonElement>($"/api/lots/{id}/max-bid?budget=60000&to=AU");
+        var max = r.GetProperty("maxBid").GetProperty("amount").GetDecimal();
+        Assert.True(max > 0 && max % 10_000 == 0);                                            // auction steps
+        Assert.True(r.GetProperty("landedAtMax").GetProperty("total").GetProperty("amount").GetDecimal() <= 60_000);
+        Assert.Equal(HttpStatusCode.BadRequest, (await _http.GetAsync($"/api/lots/{id}/max-bid?budget=0")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync($"/api/lots/{Guid.NewGuid()}/max-bid?budget=50000")).StatusCode);
+
+        var lot = await _http.GetFromJsonAsync<JsonElement>($"/api/lots/{id}");
+        Assert.NotEqual(JsonValueKind.Null, lot.GetProperty("tracking").ValueKind);
+        Assert.Equal(0, lot.GetProperty("tracking").GetProperty("priceChanges").GetInt32());
+    }
+
+    [Fact]
     public async Task Unknown_lot_is_404()
     {
         Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync($"/api/lots/{Guid.NewGuid()}")).StatusCode);

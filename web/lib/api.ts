@@ -73,6 +73,26 @@ export type MarketMeter = {
 };
 export type MarketPick = { lot: LotCard; group: string; typical: Money; percentUnder: number; cars: number; biddingOpen: boolean };
 export type MarketPicks = { month: string; steal: MarketPick | null; cheapNow: MarketPick[]; scannedAt: string; basis: string };
+export type LaterAppearance = { listingId: string; auctionDay: string | null; auctionHouse: string | null; lotNumber: string | null; openingBid: Money | null };
+export type LotTracking = {
+  status: "Live" | "Waiting" | "Relisted" | "ProbablySold" | "CantFollow";
+  headline: string;
+  detail: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  priceChanges: number;
+  priceChangePercent: number | null;
+  later: LaterAppearance[];
+};
+export type MaxBidResult = {
+  budget: Money;
+  maxBid: Money | null;
+  landedAtMax: LandedEstimate | null;
+  openingBid: Money | null;
+  headroomPercent: number | null;
+  room: "BelowOpening" | "Tight" | "Room";
+  summary: string;
+};
 export type PricePoint = { observedAt: string; price: Money; kind: string };
 
 export type LotView = {
@@ -100,6 +120,7 @@ export type LotView = {
   eligibility: ImportEligibility | null;
   deal: DealScore | null;
   market: MarketMeter | null;
+  tracking: LotTracking | null;
   sheet: SheetReport | null;
   photos: string[];
   sheetImage: string | null;

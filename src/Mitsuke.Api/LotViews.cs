@@ -32,6 +32,9 @@ public sealed record LotView
     public ImportEligibility? Eligibility { get; init; }
     public DealScore? Deal { get; init; }
 
+    /// <summary>What's happened to this car: price changes, and whether it came back to a later auction.</summary>
+    public LotTracking? Tracking { get; init; }
+
     /// <summary>Where this lot sits in its model's market: typical opening bid, spread, weekly trend, supply.</summary>
     public MarketMeter? Market { get; init; }
     public SheetReport? Sheet { get; init; }
@@ -102,6 +105,8 @@ public sealed class LotViewBuilder(
         var sheet = await sheets.GetAsync(listingId, cancellationToken);
         var landed = listing.Price is { } price ? await landedCost.EstimateAsync(price, destination, cancellationToken) : null;
         var deal = DealScorer.Score(listing, await comparables.GetCandidatesAsync(listing, cancellationToken: cancellationToken));
+        var prices = await queries.GetPriceHistoryAsync(listingId, cancellationToken);
+        var sightings = await queries.GetSightingsAsync(listingId, cancellationToken);
 
         return new LotView
         {
@@ -134,7 +139,8 @@ public sealed class LotViewBuilder(
             Photos = detail?.PhotoUrls.Count > 0 ? detail.PhotoUrls : listing.PhotoUrls,
             SheetImage = detail?.CurrentSheet?.ImageUrl,
             Relists = detail?.Relists ?? [],
-            PriceHistory = await queries.GetPriceHistoryAsync(listingId, cancellationToken),
+            PriceHistory = prices,
+            Tracking = sightings is null ? null : LotTracker.Track(listing, sightings, prices, clock.GetUtcNow()),
             InteriorGrade = sheet?.InteriorGrade ?? detail?.InteriorGrade,
             Attribution = listing.Attribution,
             Disclaimer = AlertFormatter.Disclaimer,

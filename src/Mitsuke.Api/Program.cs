@@ -83,6 +83,20 @@ api.MapGet("/lots/{id:guid}", async Task<Results<Ok<LotView>, NotFound>> (Guid i
     await lots.BuildAsync(id, MeEndpoints.Destination(to), ct) is { } view ? TypedResults.Ok(view) : TypedResults.NotFound())
     .WithSummary("Everything the lot page shows: photos, landed cost, deal score, decoded sheet, history.");
 
+api.MapGet("/lots/{id:guid}/max-bid", async Task<Results<Ok<MaxBidResult>, NotFound, ValidationProblem>> (
+        Guid id, decimal budget, string? to, IListingStore listings, ILandedCostEstimator landedCost, CancellationToken ct) =>
+    {
+        var destination = MeEndpoints.Destination(to);
+        if (budget is <= 0 or > 10_000_000)
+            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["budget"] = ["Enter a budget, on the ground."] });
+        if (await listings.GetAsync(id, ct) is not { } listing) return TypedResults.NotFound();
+        var currency = destination switch { "NZ" => "NZD", "US" => "USD", _ => "AUD" };
+        return await MaxBidCalculator.FindAsync(landedCost, new Money(budget, currency), destination, listing.Price, ct) is { } result
+            ? TypedResults.Ok(result)
+            : TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["to"] = ["No landed-cost rules for that destination."] });
+    })
+    .WithSummary("The most to bid in Japan so this car lands within a budget (the landed-cost engine run backwards).");
+
 api.MapGet("/matches", async (Guid? watchlistId, string? to, int? limit, IReadQueries queries, LotViewBuilder lots, CancellationToken ct) =>
     TypedResults.Ok(await lots.CardsAsync(
         await queries.GetRecentMatchesAsync(watchlistId, Math.Clamp(limit ?? 24, 1, 100), ct), MeEndpoints.Destination(to), ct)))

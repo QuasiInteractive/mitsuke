@@ -20,6 +20,41 @@ public sealed class PostgresReadQueries(NpgsqlDataSource db, IWatchlistStore wat
             PostgresListingStore.FromDb(r.Kind))).ToList();
     }
 
+    public async Task<LotSightings?> GetSightingsAsync(Guid listingId, CancellationToken cancellationToken = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(cancellationToken);
+        var me = await conn.QuerySingleOrDefaultAsync<(DateTime First, DateTime Last, bool HasChassis)>("""
+            select first_seen_at, last_seen_at, (vehicle_id is not null or coalesce(frame_number, '') <> '')
+            from listings where id = @listingId
+            """, new { listingId });
+        if (me == default) return null;
+
+        // The same car is the same vehicle (frame number); a later auction day rules out the feed's same-day copies.
+        var later = await conn.QueryAsync<(Guid Id, DateTime? EndsAt, string? House, string? Lot, decimal? Amount, string? Currency)>("""
+            select l.id, l.auction_ends_at, l.auction_house, l.lot_number, p.amount, p.currency
+            from listings me
+            join listings l on l.id <> me.id
+                and (l.vehicle_id = me.vehicle_id or (coalesce(me.frame_number, '') <> '' and l.frame_number = me.frame_number))
+            left join lateral (
+                select amount, currency from price_observations po
+                where po.listing_id = l.id
+                order by po.observed_at desc, po.id desc
+                limit 1
+            ) p on true
+            where me.id = @listingId and l.auction_ends_at > me.auction_ends_at
+            order by l.auction_ends_at
+            limit 10
+            """, new { listingId });
+
+        static DateTimeOffset Utc(DateTime t) => new(DateTime.SpecifyKind(t, DateTimeKind.Utc));
+        return new LotSightings(Utc(me.First), Utc(me.Last), me.HasChassis, later.Select(r => new LaterAppearance(
+            r.Id,
+            r.EndsAt is { } e ? DateOnly.FromDateTime(Utc(e).ToOffset(TimeSpan.FromHours(9)).AddSeconds(-1).DateTime) : null,
+            r.House,
+            r.Lot,
+            r.Amount is { } a && r.Currency is { } c ? new Money(a, c.Trim()) : null)).ToList());
+    }
+
     public async Task<IReadOnlyList<MatchSummary>> GetRecentMatchesAsync(Guid? watchlistId, int limit, CancellationToken cancellationToken = default)
     {
         await using var conn = await db.OpenConnectionAsync(cancellationToken);

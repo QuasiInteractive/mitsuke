@@ -37,7 +37,8 @@ function Steal({ pick: p, month }: { pick: MarketPick; month: string }) {
   const c = p.lot;
   return (
     <Link href={`/lot/${c.id}`} className="card card-alert underglow group relative grid overflow-hidden md:grid-cols-[1.2fr_1fr]">
-      <div className="relative min-h-64 bg-black">
+      {/* overflow-hidden: the photo zooms on hover and must stay inside its half, not spill over the text. */}
+      <div className="relative min-h-64 overflow-hidden bg-black">
         {/* Behind the photo: what shows if the auction house has already taken the photos down. */}
         <div className="grid-bg absolute inset-0 grid place-items-center opacity-80">
           <span className="display text-5xl text-white/10">{p.group}</span>

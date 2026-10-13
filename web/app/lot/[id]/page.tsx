@@ -16,6 +16,8 @@ import { CarDiagram, SEVERITY_COLOUR } from "@/components/CarDiagram";
 import { PriceChart, type ChartPoint } from "@/components/PriceChart";
 import { BidBar } from "@/components/BidBar";
 import { MarketMeter } from "@/components/MarketMeter";
+import { MaxBid } from "@/components/MaxBid";
+import { Tracking } from "@/components/Tracking";
 import { damageSeverity } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Lot" };
@@ -55,8 +57,18 @@ async function Lot({ id }: { id: string }) {
           <Header lot={lot} />
           <PriceCards lot={lot} />
           {lot.market && <MarketMeter meter={lot.market} />}
+          {lot.openingBid?.currency === "JPY" && lot.landed && (
+            <MaxBid
+              lotId={lot.id}
+              destination={lot.landed.destination}
+              landedAtOpening={lot.landed.total}
+              openingLow={lot.deal?.openingLow ?? null}
+              openingHigh={lot.deal?.openingHigh ?? null}
+            />
+          )}
           {lot.sheet?.redFlags.some((f) => f.severity === "High") && <RedFlags lot={lot} />}
           {lot.auctionEndsAt && <AuctionCard lot={lot} />}
+          {lot.tracking && <Tracking tracking={lot.tracking} />}
           {lot.eligibility && <Eligibility lot={lot} />}
           {lot.eligibility && <HowToGetIt eligibility={lot.eligibility} builtYear={lot.year} />}
           {(lot.variant || lot.spec.length > 0) && <CarDetails lot={lot} />}
