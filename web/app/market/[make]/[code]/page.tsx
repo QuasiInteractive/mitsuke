@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { ArrowLeft, BellPlus, CalendarDays, Gauge, History, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { getMarketModel, type LotCard, type MarketModelPage } from "@/lib/api";
@@ -31,7 +30,7 @@ export default function MarketModel({ params }: PageProps<"/market/[make]/[code]
 
 async function Content({ make, code }: { make: string; code: string }) {
   const page = await getMarketModel(make, code);
-  if (!page) notFound();
+  if (!page) return <NotSeenYet make={make} code={code} />;
   const m = page.model;
   const meter = page.meter;
   const months = page.months;
@@ -66,6 +65,13 @@ async function Content({ make, code }: { make: string; code: string }) {
           </div>
         </div>
       </section>
+
+      {m.cars < 5 && (
+        <p className="rounded-2xl border border-amber/40 bg-amber/10 px-5 py-4 text-sm text-amber">
+          Only {m.cars} {m.code}{m.cars === 1 ? "" : "s"} seen at auction since Mitsuke started watching, so treat these numbers as a first look, not
+          a market. They firm up as more come through.
+        </p>
+      )}
 
       {history && <ThenAndNow page={page} />}
 
@@ -207,5 +213,46 @@ function LiveCard({ card: c }: { card: LotCard }) {
         </div>
       </div>
     </Link>
+  );
+}
+
+/** A chassis code Mitsuke hasn't seen at auction yet: say so, show its history if we have it, offer a watchlist. */
+function NotSeenYet({ make, code }: { make: string; code: string }) {
+  const h = HISTORY[code.toUpperCase()];
+  return (
+    <div className="space-y-8 pt-10">
+      <Link href="/market" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-text">
+        <ArrowLeft className="size-4" aria-hidden /> Market
+      </Link>
+      <div>
+        <span className="rounded-md border border-accent/60 px-2 py-0.5 font-mono text-xs font-bold tracking-wider text-accent">{code.toUpperCase()}</span>
+        <h1 className="display-xl mt-4">Not seen yet</h1>
+        <p className="mt-3 max-w-xl text-muted">
+          Mitsuke hasn&apos;t seen a {make.charAt(0).toUpperCase() + make.slice(1)} {code.toUpperCase()} at auction since it started watching. Set up a
+          watchlist and you&apos;ll know the moment one appears, and this page fills in.
+        </p>
+        <Link href="/watchlists/new" className="btn-primary mt-6 px-5 py-3">
+          <BellPlus className="size-4" aria-hidden /> Watch for one
+        </Link>
+      </div>
+      {h && (
+        <section className="card p-5 sm:p-6">
+          <p className="label text-accent">The story</p>
+          <p className="mt-3 text-lg leading-relaxed">{h.story}</p>
+          {h.production && <p className="mt-2 text-sm text-muted">{h.production}</p>}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {h.launch.map((l) => (
+              <div key={l.grade} className="flex items-end justify-between gap-3 rounded-2xl border border-hairline bg-black/25 px-4 py-3">
+                <p className="text-sm font-semibold">{l.grade} <span className="block text-xs font-normal text-faint">new in {l.launched.slice(0, 4)}</span></p>
+                <p className="text-right">
+                  <span className="figure text-xl">{money({ amount: l.priceJpy, currency: "JPY" })}</span>
+                  <a href={l.source.url} target="_blank" rel="noopener noreferrer" className="block text-[11px] text-faint hover:text-text">{l.taxNote} · {l.source.label} ↗</a>
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
   );
 }
