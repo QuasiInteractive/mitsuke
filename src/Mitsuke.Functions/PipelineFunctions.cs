@@ -1,5 +1,7 @@
+using System.Net;
 using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Mitsuke.Core;
 
@@ -26,8 +28,13 @@ public sealed record CollectRequest(Guid WatchlistId, DateTimeOffset? ScheduledA
 /// someone about a car, so it keeps the dead-letter queue: after the last attempt it moves to alerts-poison.
 /// </summary>
 public sealed partial class PipelineFunctions(
-    IWatchlistStore watchlists, Collector collector, AlertSender sender, TimeProvider clock, ILogger<PipelineFunctions> logger)
+    IWatchlistStore watchlists, Collector collector, AlertSender sender, TimeProvider clock, ILogger<PipelineFunctions> logger,
+    IEmailSender? email = null, IConfiguration? config = null)
 {
+    /// <summary>How often a rejected-key email goes out at most (per instance): enough to notice, not a flood.</summary>
+    public static readonly TimeSpan KeyAlertEvery = TimeSpan.FromHours(6);
+    private static DateTimeOffset _lastKeyAlert = DateTimeOffset.MinValue;
+
     public const string CollectQueue = "collect";
     public const string AlertsQueue = "alerts";
 
@@ -81,11 +88,40 @@ public sealed partial class PipelineFunctions(
             var result = await collector.CollectAsync(watchlist, cancellationToken);
             return result.Matches.Select(m => JsonSerializer.Serialize(m, Json)).ToArray();
         }
+        catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            // The data provider rejected the API key (13 Oct 2026: revoked, unnoticed for a day, ~200 rejected calls an
+            // hour from retries). Retrying can't fix a key, and hammering a provider with a dead key looks like abuse:
+            // complete the message, log it as critical and tell a human.
+            LogKeyRejected(logger, (int)ex.StatusCode!.Value, request.WatchlistId);
+            await AlertKeyRejectedAsync((int)ex.StatusCode!.Value, cancellationToken);
+            return [];
+        }
         catch (Exception ex) when (ex is not OperationCanceledException && attempt >= MaxDequeueCount)
         {
             // Completing the message (rather than letting it go to collect-poison) is safe: the next timer run asks again.
             LogGaveUp(logger, ex, request.WatchlistId, attempt);
             return [];
+        }
+    }
+
+    private async Task AlertKeyRejectedAsync(int status, CancellationToken cancellationToken)
+    {
+        var to = config?["OPS_ALERTS_TO"] is { Length: > 0 } ops ? ops : config?["BID_REQUESTS_TO"];
+        var now = clock.GetUtcNow();
+        if (email is null || string.IsNullOrEmpty(to) || now - _lastKeyAlert < KeyAlertEvery) return;
+        _lastKeyAlert = now;
+        var text = $"TheCarApi answered {status} to Mitsuke's searches at {now:yyyy-MM-dd HH:mm} UTC: the API key has been rejected " +
+            "(revoked, expired or over its plan). No new cars are coming in. Check the account, then put a working key in Key Vault " +
+            "(secret thecarapi-key) and restart the pipeline. Searches are not retried while the key is rejected.";
+        try
+        {
+            await email.SendAsync(new EmailMessage(to, "Mitsuke: the data provider rejected the API key", text,
+                $"<p style=\"font-family:Segoe UI,Arial,sans-serif\">{System.Net.WebUtility.HtmlEncode(text)}</p>"), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogKeyAlertFailed(logger, ex);
         }
     }
 
@@ -104,6 +140,12 @@ public sealed partial class PipelineFunctions(
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Dropped stale collect for {WatchlistId} scheduled at {ScheduledAt}: a newer run replaces it")]
     private static partial void LogStale(ILogger logger, Guid watchlistId, DateTimeOffset scheduledAt);
+
+    [LoggerMessage(Level = LogLevel.Critical, Message = "Data provider rejected the API key ({Status}) collecting {WatchlistId}; not retrying")]
+    private static partial void LogKeyRejected(ILogger logger, int status, Guid watchlistId);
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "Couldn't email the rejected-key alert")]
+    private static partial void LogKeyAlertFailed(ILogger logger, Exception exception);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Gave up collecting {WatchlistId} after {Attempts} attempts; the next scheduled run retries it")]
     private static partial void LogGaveUp(ILogger logger, Exception exception, Guid watchlistId, long attempts);
