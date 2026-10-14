@@ -32,9 +32,18 @@ public sealed class MarketPagesBuilder(IMarketStore market, IReadQueries queries
             return (await market.ListModelsAsync(now - History, now, MinimumCars, cancellationToken)).Select(Card).ToList();
         }))!;
 
+    /// <summary>Every model seen at all: a page still renders for one with too little history to be listed (a lot links to it).</summary>
+    private async Task<IReadOnlyList<MarketModelCard>> AnyModelsAsync(CancellationToken cancellationToken) =>
+        (await cache.GetOrCreateAsync("market:any", async entry =>
+        {
+            entry.AbsoluteExpirationRelativeToNow = CacheFor;
+            var now = clock.GetUtcNow();
+            return (await market.ListModelsAsync(now - History, now, 1, cancellationToken)).Select(Card).ToList();
+        }))!;
+
     public async Task<MarketModelPage?> PageAsync(string make, string code, string destination, CancellationToken cancellationToken)
     {
-        var model = (await ModelsAsync(cancellationToken))
+        var model = (await AnyModelsAsync(cancellationToken))
             .FirstOrDefault(m => m.Make.Equals(make, StringComparison.OrdinalIgnoreCase) && m.Code.Equals(code, StringComparison.OrdinalIgnoreCase));
         if (model is null) return null;
 
