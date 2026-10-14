@@ -157,6 +157,13 @@ public static class KnownGenerations
         return curated.Concat(extra).OrderByDescending(g => g.YearTo).ThenByDescending(g => g.YearFrom).ThenBy(g => g.Code, StringComparer.Ordinal).ToList();
     }
 
+    /// <summary>The curated name and build years for a chassis code ("R32 GT-R", 1989–1994), or null when it isn't curated.</summary>
+    public static (string Label, int From, int To)? Find(string make, string code)
+    {
+        var e = All.FirstOrDefault(x => Same(x.Make, make) && Same(x.Code, code));
+        return e is null ? null : (e.Label, e.From, e.To);
+    }
+
     private static bool Same(string a, string b) => string.Equals(a.Trim(), b.Trim(), StringComparison.OrdinalIgnoreCase);
 
     /// <summary>"LANCER EVOLUTION" as listings name it: "Lancer Evolution".</summary>

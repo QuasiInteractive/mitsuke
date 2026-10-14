@@ -71,6 +71,25 @@ public class MarketMeterTests
     }
 }
 
+public class MarketHistoryTests
+{
+    [Fact]
+    public void Months_carry_typical_range_and_extremes_and_skip_thin_ones()
+    {
+        var oct = new DateOnly(2026, 10, 3);
+        var samples = Enumerable.Range(2, 5).Select(a => new MarketSample(oct, a * 1_000_000m, false))
+            .Append(new MarketSample(new DateOnly(2026, 9, 20), 9_000_000m, false))   // one car in September: not a month
+            .ToList();
+
+        var month = Assert.Single(MarketHistories.Monthly(samples));
+        Assert.Equal(new DateOnly(2026, 10, 1), month.Month);
+        Assert.Equal(4_000_000m, month.Typical);
+        Assert.Equal(2_000_000m, month.Min);
+        Assert.Equal(6_000_000m, month.Max);
+        Assert.Equal(5, month.Cars);
+    }
+}
+
 [Collection(PostgresTests.Name)]
 public sealed class PostgresMarketStoreTests(PostgresFixture pg) : IAsyncLifetime
 {
@@ -110,6 +129,21 @@ public sealed class PostgresMarketStoreTests(PostgresFixture pg) : IAsyncLifetim
         Assert.Equal(3, samples.Count);
         Assert.Single(samples, s => s.OnAuctionNow);
         Assert.DoesNotContain(samples, s => s.Amount == 1_000_000);
+    }
+
+    [Fact]
+    public async Task Models_with_enough_cars_are_listed_one_row_per_chassis_code()
+    {
+        for (var i = 0; i < 6; i++) await AddAsync($"r{i}", 3_000_000 + i * 100_000, daysAgo: 10);
+        for (var i = 0; i < 2; i++) await AddAsync($"s{i}", 2_000_000, daysAgo: 10, code: "BCNR33");
+
+        var models = await _market.ListModelsAsync(Now.AddDays(-365), Now, 5);
+
+        var r32 = Assert.Single(models);
+        Assert.Equal("BNR32", r32.Code);
+        Assert.Equal("Nissan", r32.Make);
+        Assert.Equal(6, r32.Cars);
+        Assert.Equal(3_250_000m, r32.Typical);
     }
 
     [Fact]

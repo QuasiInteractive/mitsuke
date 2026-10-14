@@ -35,7 +35,8 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               </span>
             </Link>
             <nav className="flex items-center gap-1 text-sm text-muted">
-              <Link href="/" className="rounded-full px-3 py-1.5 transition hover:bg-white/5 hover:text-text">Matches</Link>
+              <Link href="/" className="hidden rounded-full px-3 py-1.5 transition hover:bg-white/5 hover:text-text sm:inline-block">Matches</Link>
+              <Link href="/market" className="rounded-full px-3 py-1.5 transition hover:bg-white/5 hover:text-text">Market</Link>
               <Suspense fallback={<span className="w-16" />}>
                 <UserMenu />
               </Suspense>

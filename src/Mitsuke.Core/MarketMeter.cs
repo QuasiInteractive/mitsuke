@@ -193,5 +193,8 @@ public interface IMarketStore
     /// Lots first seen, and going to auction, since <paramref name="since"/> whose opening bid is well under the typical for their chassis code
     /// (over the last twelve weeks), cleanest first: good grade, not repaired, not high mileage for the model.
     /// </summary>
+    /// <summary>Every make, model and chassis code with at least <paramref name="minCars"/> priced cars since <paramref name="since"/>.</summary>
+    Task<IReadOnlyList<MarketModel>> ListModelsAsync(DateTimeOffset since, DateTimeOffset now, int minCars, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<MarketCandidate>> ScanAsync(DateTimeOffset since, DateTimeOffset now, int limit, CancellationToken cancellationToken = default);
 }

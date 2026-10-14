@@ -93,6 +93,20 @@ export type MaxBidResult = {
   room: "BelowOpening" | "Tight" | "Room";
   summary: string;
 };
+export type MarketMonth = { month: string; typical: number; low: number; high: number; min: number; max: number; cars: number };
+export type MarketModelCard = {
+  make: string;
+  model: string;
+  code: string;
+  name: string;
+  yearFrom: number | null;
+  yearTo: number | null;
+  cars: number;
+  typical: Money;
+  onAuctionNow: number;
+  since: string;
+};
+export type MarketModelPage = { model: MarketModelCard; months: MarketMonth[]; meter: MarketMeter | null; live: LotCard[]; basis: string };
 export type PricePoint = { observedAt: string; price: Money; kind: string };
 
 export type LotView = {
@@ -172,6 +186,11 @@ export const getLot = (id: string) => get<LotView>(`/api/lots/${encodeURICompone
 export const getMatches = async () => (await get<LotCard[]>("/api/matches?limit=24")) ?? [];
 // The market scan is the same for everyone and cached by the API, so a failure just hides the section.
 export const getMarketPicks = () => get<MarketPicks>("/api/market/picks").catch(() => null);
+export const getMarketModels = async () => (await get<MarketModelCard[]>("/api/market/models").catch(() => null)) ?? [];
+export const getMarketModel = (make: string, code: string) =>
+  get<MarketModelPage>(`/api/market/models/${encodeURIComponent(make)}/${encodeURIComponent(code)}`);
+/** The public address of a model's market page. */
+export const marketHref = (make: string, code: string) => `/market/${encodeURIComponent(make.toLowerCase())}/${encodeURIComponent(code.toLowerCase())}`;
 export const getWatchlists = async () => (await get<WatchlistSummary[]>("/api/watchlists")) ?? [];
 
 // ---- Signed-in calls: the user's Supabase access token goes to Mitsuke.Api, which verifies it. ----
