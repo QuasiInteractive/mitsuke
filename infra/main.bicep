@@ -36,6 +36,9 @@ param bidRequestsTo string
 @description('Sender address for alert emails (the Gmail account the app password belongs to).')
 param smtpUser string
 
+@description('The address alerts come from: a Send-as alias of smtpUser in Google Workspace.')
+param smtpFrom string = 'hello@mitsuke-cars.com'
+
 @description('Web Push VAPID public key (not a secret; browsers get it too). Empty turns phone notifications off. The private key is the Key Vault secret vapid-private-key.')
 param vapidPublicKey string = ''
 
@@ -169,6 +172,7 @@ var shared = [
   { name: 'SUPABASE_URL', value: supabaseUrl }
   { name: 'SMTP_HOST', value: 'smtp.gmail.com' }
   { name: 'SMTP_USER', value: smtpUser }
+  { name: 'SMTP_FROM', value: smtpFrom }
   { name: 'SMTP_PASSWORD', value: kv(vault.name, 'smtp-password') }
   { name: 'BID_REQUESTS_TO', value: bidRequestsTo }
   { name: 'MITSUKE_WEB_URL', value: webUrl }
@@ -178,7 +182,7 @@ var shared = [
 var push = empty(vapidPublicKey) ? [] : [
   { name: 'VAPID_PUBLIC_KEY', value: vapidPublicKey }
   { name: 'VAPID_PRIVATE_KEY', value: kv(vault.name, 'vapid-private-key') }
-  { name: 'VAPID_SUBJECT', value: 'mailto:${smtpUser}' }
+  { name: 'VAPID_SUBJECT', value: 'mailto:${smtpFrom}' }
 ]
 
 // ------------------------------------------------------------------ the pipeline (Azure Functions, Flex Consumption)
