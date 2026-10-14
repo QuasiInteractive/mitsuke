@@ -4,7 +4,7 @@
 
 A 24/7 car watchlist for Australian and New Zealand buyers. Save the car you want ("R32 GT-R, grade 3.5+, under A$45,000 landed") and Mitsuke watches the Japanese auctions. Within minutes of a matching lot appearing it sends an email and a phone notification with the facts, which generation the car is, an estimated landed cost, whether it can legally be imported, a deal score and the auction sheet read into plain English.
 
-**Live:** [mitsuke-jp.vercel.app](https://mitsuke-jp.vercel.app) · Sister product to [Kensa-ya](https://kensa-ya.vercel.app): *Mitsuke finds the car → Kensa-ya checks the car.*
+**Live:** [mitsuke-cars.com](https://mitsuke-cars.com) · Sister product to [Kensa-ya](https://kensa-ya.com): *Mitsuke finds the car → Kensa-ya checks the car.*
 
 **Stack:** C# / .NET 10 · Azure Functions (Flex Consumption) · Storage Queues · ASP.NET Core minimal API · PostgreSQL (Supabase) · Next.js 16 · Bicep · GitHub Actions (OIDC) · OpenTelemetry → Application Insights · Polly · xUnit + Testcontainers
 
