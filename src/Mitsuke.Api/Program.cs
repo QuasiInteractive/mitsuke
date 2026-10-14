@@ -38,6 +38,7 @@ if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_
 DetailsRefreshSender.AddPipelineQueues(builder.Services, builder.Configuration);
 builder.Services.AddSingleton<LotViewBuilder>();
 builder.Services.AddSingleton<MarketPicksBuilder>();
+builder.Services.AddSingleton<MarketPagesBuilder>();
 builder.Services.AddMemoryCache();
 builder.Services.AddProblemDetails();
 builder.Services.AddOpenApi();
@@ -105,6 +106,14 @@ api.MapGet("/matches", async (Guid? watchlistId, string? to, int? limit, IReadQu
 api.MapGet("/market/picks", async (string? to, MarketPicksBuilder picks, CancellationToken ct) =>
     TypedResults.Ok(await picks.GetAsync(MeEndpoints.Destination(to), ct)))
     .WithSummary("Steal of the month and what's cheap right now: clean cars opening well under the usual for their chassis code.");
+
+api.MapGet("/market/models", async (MarketPagesBuilder pages, CancellationToken ct) => TypedResults.Ok(await pages.ModelsAsync(ct)))
+    .WithSummary("Every model with enough opening-bid history for a market page.");
+
+api.MapGet("/market/models/{make}/{code}", async Task<Results<Ok<MarketModelPage>, NotFound>> (
+        string make, string code, string? to, MarketPagesBuilder pages, CancellationToken ct) =>
+    await pages.PageAsync(make, code, MeEndpoints.Destination(to), ct) is { } page ? TypedResults.Ok(page) : TypedResults.NotFound())
+    .WithSummary("One model's market: monthly opening bids (typical, usual range, extremes), the current meter and what's at auction now.");
 
 api.MapGet("/watchlists", async (IReadQueries queries, CancellationToken ct) =>
     TypedResults.Ok(await queries.GetWatchlistSummariesAsync(ct)))

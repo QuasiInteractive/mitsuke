@@ -7,7 +7,8 @@ import {
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getLot, getMyFeedback, type LotView } from "@/lib/api";
+import { getLot, getMyFeedback, marketHref, type LotView } from "@/lib/api";
+import Link from "next/link";
 import { getUser } from "@/lib/supabase/server";
 import { day, km, money, shortDate } from "@/lib/format";
 import { Gallery } from "@/components/Gallery";
@@ -57,6 +58,12 @@ async function Lot({ id }: { id: string }) {
           <Header lot={lot} />
           <PriceCards lot={lot} />
           {lot.market && <MarketMeter meter={lot.market} />}
+          {lot.modelCode && (
+            <Link href={marketHref(lot.make, lot.modelCode)} className="card flex items-center justify-between px-5 py-3.5 text-sm hover:border-white/20">
+              <span>The full {lot.modelCode} market: opening bids over time, highs and lows, then and now</span>
+              <span className="text-accent">→</span>
+            </Link>
+          )}
           {lot.openingBid?.currency === "JPY" && lot.landed && (
             <MaxBid
               lotId={lot.id}

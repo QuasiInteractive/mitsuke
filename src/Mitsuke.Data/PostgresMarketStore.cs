@@ -45,6 +45,41 @@ public sealed class PostgresMarketStore(NpgsqlDataSource db) : IMarketStore
         return rows.Select(r => new MarketSample(DateOnly.FromDateTime(r.Seen), r.Amount, r.OnNow, r.Transmission)).ToList();
     }
 
+    public async Task<IReadOnlyList<MarketModel>> ListModelsAsync(DateTimeOffset since, DateTimeOffset now, int minCars, CancellationToken cancellationToken = default)
+    {
+        await using var conn = await db.OpenConnectionAsync(cancellationToken);
+        var rows = await conn.QueryAsync<ModelRow>($"""
+            with cars as (
+                select distinct on ({CarKey})
+                       l.make, lower(l.make) as mk, l.model, upper(l.model_code) as code, p.amount, l.first_seen_at,
+                       (l.last_seen_at > @now - interval '2 days' and (l.auction_ends_at is null or l.auction_ends_at > @now)) as on_now
+                from listings l
+                {LatestYen}
+                where l.model_code is not null and l.first_seen_at >= @since
+                order by {CarKey}, l.last_seen_at desc
+            )
+            select min(make) as Make, min(model) as Model, code as Code, count(*)::int as Cars,
+                   percentile_cont(0.5) within group (order by amount)::numeric as Typical,
+                   count(*) filter (where on_now)::int as OnNow, min(first_seen_at) as Since
+            from cars
+            group by mk, code
+            having count(*) >= @minCars
+            order by count(*) desc
+            """, new { since = since.ToUniversalTime(), now = now.ToUniversalTime(), minCars });
+        return rows.Select(r => new MarketModel(r.Make, r.Model, r.Code, r.Cars, r.Typical, r.OnNow, DateOnly.FromDateTime(r.Since))).ToList();
+    }
+
+    private sealed record ModelRow
+    {
+        public string Make { get; init; } = "";
+        public string Model { get; init; } = "";
+        public string Code { get; init; } = "";
+        public int Cars { get; init; }
+        public decimal Typical { get; init; }
+        public int OnNow { get; init; }
+        public DateTime Since { get; init; }
+    }
+
     public async Task<IReadOnlyList<MarketCandidate>> ScanAsync(DateTimeOffset since, DateTimeOffset now, int limit, CancellationToken cancellationToken = default)
     {
         await using var conn = await db.OpenConnectionAsync(cancellationToken);

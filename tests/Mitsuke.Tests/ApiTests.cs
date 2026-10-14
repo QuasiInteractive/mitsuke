@@ -110,6 +110,14 @@ public sealed class ApiTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Market_pages_list_models_and_404_an_unknown_one()
+    {
+        await SeedLotAsync(); // one old car: not enough for a market page
+        Assert.Equal(0, (await _http.GetFromJsonAsync<JsonElement>("/api/market/models")).GetArrayLength());
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync("/api/market/models/Nissan/BNR32")).StatusCode);
+    }
+
+    [Fact]
     public async Task Unknown_lot_is_404()
     {
         Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync($"/api/lots/{Guid.NewGuid()}")).StatusCode);
