@@ -9,6 +9,7 @@ import { day, km, money } from "@/lib/format";
 import { deleteWatchlist, setWatchlistActive } from "@/app/actions";
 import { PushToggle } from "@/components/PushToggle";
 import { MarketStrip } from "@/components/MarketMeter";
+import { CardStrip } from "@/components/CardStrip";
 
 export const metadata: Metadata = { title: "Your watchlists" };
 
@@ -169,7 +170,8 @@ async function Matches({ id, token }: { id: string; token: string }) {
         Your matches · <span className="text-good">{open} open for bids</span>
         {rows.length > open && <span className="text-faint"> · {rows.length - open} gone to auction</span>}
       </p>
-      <div className="no-scrollbar -mx-1 mt-3 flex gap-4 overflow-x-auto px-1 pb-2">
+      <div className="mt-3">
+      <CardStrip count={rows.length} label="your matches">
         {rows.map(({ c, s }) => (
           <Link
             key={c.id}
@@ -207,6 +209,7 @@ async function Matches({ id, token }: { id: string; token: string }) {
             </div>
           </Link>
         ))}
+      </CardStrip>
       </div>
     </div>
   );
@@ -235,7 +238,8 @@ async function CloseMatches({ id, token }: { id: string; token: string }) {
   return (
     <div className="mt-6">
       <p className="label">Close, but not quite · <span className="text-amber">{close.length} at auction now</span></p>
-      <div className="no-scrollbar -mx-1 mt-3 flex gap-4 overflow-x-auto px-1 pb-2">
+      <div className="mt-3">
+      <CardStrip count={close.length} label="close matches">
         {close.map(({ lot, missesBy }) => (
           <Link key={lot.id} href={`/lot/${lot.id}`} className="group w-72 shrink-0 overflow-hidden rounded-2xl border border-hairline bg-black/30 transition duration-200 hover:-translate-y-0.5 hover:border-white/20">
             <div className="relative aspect-[16/10] bg-raised">
@@ -265,6 +269,7 @@ async function CloseMatches({ id, token }: { id: string; token: string }) {
             </div>
           </Link>
         ))}
+      </CardStrip>
       </div>
     </div>
   );
