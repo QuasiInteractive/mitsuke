@@ -99,6 +99,14 @@ public sealed class PipelineFunctionsTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_rejected_api_key_is_not_retried()
+    {
+        // 13 Oct 2026: a revoked key, retried 5 times per watchlist every 10 minutes. Retrying can't fix a key.
+        var functions = Functions(new FailingSource(System.Net.HttpStatusCode.Unauthorized));
+        Assert.Empty(await functions.CollectAsync(new CollectRequest(_r32.Id, Now), 1, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Messages_from_before_the_timestamp_still_work() =>
         Assert.Empty(await Functions().CollectAsync(new CollectRequest(_r32.Id, ScheduledAt: null), 1, CancellationToken.None));
 
@@ -111,7 +119,7 @@ public sealed class PipelineFunctionsTests(PostgresFixture pg) : IAsyncLifetime
         Assert.Equal(PipelineFunctions.MaxDequeueCount, host.RootElement.GetProperty("extensions").GetProperty("queues").GetProperty("maxDequeueCount").GetInt32());
     }
 
-    private sealed class FailingSource : IListingSource
+    private sealed class FailingSource(System.Net.HttpStatusCode? status = null) : IListingSource
     {
         public int Calls { get; private set; }
         public string Name => "fake";
@@ -120,7 +128,9 @@ public sealed class PipelineFunctionsTests(PostgresFixture pg) : IAsyncLifetime
         {
             Calls++;
             await Task.Yield();
-            throw new HttpRequestException("TheCarApi timed out");
+            throw status is { } code
+                ? new HttpRequestException($"Response status code does not indicate success: {(int)code}.", null, code)
+                : new HttpRequestException("TheCarApi timed out");
 #pragma warning disable CS0162 // an iterator needs a yield
             yield break;
 #pragma warning restore CS0162
