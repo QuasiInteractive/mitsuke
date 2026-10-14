@@ -334,3 +334,18 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Sideways card rows: a thin, visible scrollbar on desktop so it's clear there's more; swipe on touch. */
+.strip-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+}
+.strip-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.strip-scroll::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.18);
+  border-radius: 999px;
+}

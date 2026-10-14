@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowRight, CalendarDays, Flame, Gauge, TrendingDown } from "lucide-react";
+import { CardStrip } from "@/components/CardStrip";
 import { getMarketPicks, type MarketPick } from "@/lib/api";
 import { day, km, money } from "@/lib/format";
 
@@ -24,8 +25,10 @@ export async function MarketPicks() {
             </div>
             <p className="max-w-sm text-xs text-faint">{picks.basis}</p>
           </div>
-          <div className="no-scrollbar -mx-1 mt-5 flex snap-x gap-4 overflow-x-auto px-1 pb-2">
-            {rest.map((p) => <PickCard key={p.lot.id} pick={p} />)}
+          <div className="mt-5">
+            <CardStrip count={rest.length} label="cheap cars">
+              {rest.map((p) => <PickCard key={p.lot.id} pick={p} />)}
+            </CardStrip>
           </div>
         </div>
       )}
