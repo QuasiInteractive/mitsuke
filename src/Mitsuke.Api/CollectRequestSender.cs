@@ -30,7 +30,7 @@ public sealed partial class CollectRequestSender(QueueClient queue, TimeProvider
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Not fatal: the next scheduled run (at most ten minutes away) searches it anyway.
+            // Not fatal: the next scheduled run (at most an hour away) searches it anyway.
             LogFailed(logger, ex, watchlistId);
         }
     }

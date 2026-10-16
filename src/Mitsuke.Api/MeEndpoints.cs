@@ -8,7 +8,7 @@ namespace Mitsuke.Api;
 /// <summary>Everything under /api/me: the signed-in person's watchlists, matches and lot feedback.</summary>
 public static class MeEndpoints
 {
-    /// <summary>Per-person cap: every watchlist is another search against TheCarApi every ten minutes.</summary>
+    /// <summary>Per-person cap: every watchlist is another search against TheCarApi on every scheduled run.</summary>
     public const int MaxWatchlistsPerUser = 10;
 
     public static RouteGroupBuilder MapMeEndpoints(this RouteGroupBuilder api)

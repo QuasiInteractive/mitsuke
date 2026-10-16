@@ -42,7 +42,7 @@ public sealed partial class PipelineFunctions(
     public const int MaxDequeueCount = 5;
 
     /// <summary>
-    /// A collect message older than this has been overtaken by a newer run (the schedule is every 10 minutes).
+    /// A collect message older than this has been overtaken by a newer run (the schedule runs at most every 10 minutes; hourly since 16 Oct 2026).
     /// </summary>
     public static readonly TimeSpan CollectStaleAfter = TimeSpan.FromMinutes(9);
 
@@ -97,6 +97,14 @@ public sealed partial class PipelineFunctions(
             await AlertKeyRejectedAsync((int)ex.StatusCode!.Value, cancellationToken);
             return [];
         }
+        catch (HttpRequestException ex) when (ex.StatusCode is HttpStatusCode.TooManyRequests)
+        {
+            // Over the provider's request allowance (15 Oct 2026: the test key's ~300 a day, used up by mid-morning,
+            // then every search and its 5 retries refused). Retrying only spends allowance that isn't there; the next
+            // scheduled run tries again.
+            LogRateLimited(logger, request.WatchlistId);
+            return [];
+        }
         catch (Exception ex) when (ex is not OperationCanceledException && attempt >= MaxDequeueCount)
         {
             // Completing the message (rather than letting it go to collect-poison) is safe: the next timer run asks again.
@@ -143,6 +151,9 @@ public sealed partial class PipelineFunctions(
 
     [LoggerMessage(Level = LogLevel.Critical, Message = "Data provider rejected the API key ({Status}) collecting {WatchlistId}; not retrying")]
     private static partial void LogKeyRejected(ILogger logger, int status, Guid watchlistId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Data provider is rate limiting (429) collecting {WatchlistId}; not retrying until the next run")]
+    private static partial void LogRateLimited(ILogger logger, Guid watchlistId);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Couldn't email the rejected-key alert")]
     private static partial void LogKeyAlertFailed(ILogger logger, Exception exception);

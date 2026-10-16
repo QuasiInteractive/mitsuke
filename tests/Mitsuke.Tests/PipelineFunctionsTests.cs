@@ -107,6 +107,13 @@ public sealed class PipelineFunctionsTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Being_rate_limited_is_not_retried()
+    {
+        var functions = Functions(new FailingSource(System.Net.HttpStatusCode.TooManyRequests));
+        Assert.Empty(await functions.CollectAsync(new CollectRequest(_r32.Id, Now), 1, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task Messages_from_before_the_timestamp_still_work() =>
         Assert.Empty(await Functions().CollectAsync(new CollectRequest(_r32.Id, ScheduledAt: null), 1, CancellationToken.None));
 

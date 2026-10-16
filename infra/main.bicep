@@ -27,8 +27,8 @@ param webUrl string
 @description('Kensa-ya, for sheet decoding through its partner API (not a secret).')
 param kensayaUrl string = 'https://kensa-ya.vercel.app'
 
-@description('How often the pipeline checks the auctions (NCRONTAB).')
-param collectSchedule string = '0 */10 * * * *'
+@description('How often the pipeline checks the auctions (NCRONTAB). Hourly fits the data key's allowance (~300 requests a day on the test key, 15 Oct 2026); every 10 minutes needs 1,000+ with eight watchlists.')
+param collectSchedule string = '0 5 * * * *'
 
 @description('Who gets bid requests by email (the person forwarding them to the exporter).')
 param bidRequestsTo string

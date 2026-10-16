@@ -71,7 +71,7 @@ public static class LotTracker
             headline = changes == 0
                 ? $"Opening bid unchanged since Mitsuke first saw it ({Yen(listing.Price ?? new Money(0, "JPY"))})."
                 : $"Opening bid changed {changes} time{(changes == 1 ? "" : "s")}: {Yen(yen[0].Price)} to {Yen(yen[^1].Price)}.";
-            detail = "Checked every 10 minutes until the auction. Live bidding isn't published outside the auction house, so nobody can see how it's going until the result.";
+            detail = "Checked every hour until the auction. Live bidding isn't published outside the auction house, so nobody can see how it's going until the result.";
             if (listing.Price is null) headline = "No opening bid published yet.";
         }
         else if (seen.Later.Count > 0)
