@@ -420,7 +420,7 @@ export function WatchlistForm({
       <button disabled={pending} className="btn-primary underglow w-full py-5 font-display text-lg italic uppercase tracking-wide">
         {pending ? "Saving…" : <>{submitLabel} <span aria-hidden>→</span></>}
       </button>
-      <p className="-mt-4 text-center text-xs text-faint">Mitsuke checks the auctions every ten minutes and alerts you the moment one fits.</p>
+      <p className="-mt-4 text-center text-xs text-faint">Mitsuke checks the auctions every hour and alerts you as soon as one fits.</p>
     </form>
   );
 }

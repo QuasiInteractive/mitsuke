@@ -29,7 +29,7 @@ async function HomeContent() {
         <div>
           <p className="label text-accent">Your matches</p>
           <h1 className="display mt-3">Found for you</h1>
-          <p className="mt-3 max-w-xl text-muted">Cars that fit your watchlists, newest first. Mitsuke checks the Japanese auctions every ten minutes.</p>
+          <p className="mt-3 max-w-xl text-muted">Cars that fit your watchlists, newest first. Mitsuke checks the Japanese auctions every hour.</p>
         </div>
         <Link href="/watchlists/new" className="btn-primary px-6 py-3.5">+ New watchlist</Link>
       </section>
@@ -104,7 +104,7 @@ async function Landing() {
               <Link href="/watchlists/new" className="btn-ghost px-6 py-4 text-base text-text">Build a watchlist</Link>
             </div>
             <dl className="mt-10 grid max-w-lg grid-cols-3 gap-6 border-t border-hairline pt-6 text-sm">
-              <div><dt className="text-faint">Checks</dt><dd className="figure mt-1 text-sm sm:text-lg">Every 10 min</dd></div>
+              <div><dt className="text-faint">Checks</dt><dd className="figure mt-1 text-sm sm:text-lg">Every hour</dd></div>
               <div><dt className="text-faint">Watches</dt><dd className="figure mt-1 text-sm sm:text-lg">USS, TAA +</dd></div>
               <div><dt className="text-faint">Lands in</dt><dd className="figure mt-1 text-sm sm:text-lg">AU · NZ · US</dd></div>
             </dl>
@@ -138,7 +138,7 @@ async function Landing() {
           <Watchlists />
         </div>
         {examples.length === 0 ? (
-          <p className="card mt-6 p-8 text-center text-muted">No matches yet. Mitsuke checks the auctions every ten minutes.</p>
+          <p className="card mt-6 p-8 text-center text-muted">No matches yet. Mitsuke checks the auctions every hour.</p>
         ) : (
           <Grid cards={examples} />
         )}

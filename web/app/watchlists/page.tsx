@@ -21,7 +21,7 @@ export default function WatchlistsPage() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-end justify-between gap-6 px-4 sm:px-6">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full border border-accent/50 bg-accent/10 px-4 py-1.5 text-[11px] font-semibold tracking-[0.2em] text-accent uppercase">
-              <span className="size-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_var(--color-accent)]" /> Watching every 10 min
+              <span className="size-1.5 animate-pulse rounded-full bg-accent shadow-[0_0_8px_var(--color-accent)]" /> Watching every hour
             </span>
             <h1 className="display-xl mt-5">
               The <span className="glow-red">hunt</span>
