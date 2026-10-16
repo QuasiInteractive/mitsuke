@@ -32,5 +32,17 @@ public sealed record Watchlist
     /// <summary>The user it belongs to; null for system/demo watchlists.</summary>
     public Guid? OwnerId { get; init; }
 
-    public SourceQuery ToSourceQuery() => new(Make, Model, YearFrom, YearTo);
+    /// <summary>
+    /// Most chassis codes searched one by one (one request each) before it's cheaper to search the whole model.
+    /// </summary>
+    public const int MaxCodesSearchedSeparately = 3;
+
+    /// <summary>
+    /// What to ask the data source for: this watchlist's chassis codes and mileage, cheapest first, one page. The data
+    /// key allows a few hundred requests a day (Oct 2026), so a search is one request, not five pages of every
+    /// Skyline to keep the BNR32s.
+    /// </summary>
+    public SourceQuery ToSourceQuery() => new(Make, Model, YearFrom, YearTo,
+        ModelCodes.Count is > 0 and <= MaxCodesSearchedSeparately ? [.. ModelCodes.Order(StringComparer.OrdinalIgnoreCase)] : null,
+        MaxMileageKm, CheapestFirst: true, Limit: 50);
 }

@@ -8,6 +8,10 @@ public interface ICollectRequests
     Task RequestAsync(Guid watchlistId, CancellationToken cancellationToken = default);
 }
 
+/// <param name="MaxNewAlertsPerRun">At most this many new matches per watchlist per run, best price first: "the two best
+/// R32s", not every one that passes. Null for no limit.</param>
+public sealed record CollectorOptions(int? MaxNewAlertsPerRun);
+
 /// <summary>A match to alert on. Small and id-only so it travels well as a queue message.</summary>
 public sealed record AlertRequest(Guid WatchlistId, Guid ListingId);
 
@@ -23,13 +27,15 @@ public sealed partial class Collector(
     ILandedCostEstimator landedCost,
     TimeProvider clock,
     ILogger<Collector> logger,
-    IAlertLog? alerts = null)
+    IAlertLog? alerts = null,
+    CollectorOptions? options = null)
 {
     public async Task<CollectResult> CollectAsync(Watchlist watchlist, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(watchlist);
         int seen = 0, fresh = 0;
         var matches = new List<AlertRequest>();
+        var cost = new Dictionary<Guid, decimal>(); // landed total (or price) per match, to keep the best few
         var rejected = new Dictionary<string, int>(StringComparer.Ordinal);
 
         // Store everything seen (dedupe + price history happen per listing), then match one copy per car: the feed
@@ -68,7 +74,17 @@ public sealed partial class Collector(
                 // Already-alerted matches are emitted too: the alert log's claim, not the collector, is what
                 // guarantees once-only delivery, so a lost queue message can never mean a lost alert.
                 matches.Add(new AlertRequest(watchlist.Id, listingId));
+                cost[listingId] = landed?.Total.Amount ?? listing.Price?.Amount ?? decimal.MaxValue;
             }
+        }
+
+        // The best few of everything that fits right now, alerted or not: once the two best have been sent, nothing more
+        // goes out until a cheaper one turns up.
+        if (options?.MaxNewAlertsPerRun is { } max && matches.Count > max)
+        {
+            var best = matches.OrderBy(m => cost.GetValueOrDefault(m.ListingId, decimal.MaxValue)).Take(max).ToHashSet();
+            rejected[$"beyond the {max} best prices"] = matches.Count - best.Count;
+            matches.RemoveAll(m => !best.Contains(m));
         }
 
         // Every run sees every car that ever matched. Queueing all of them again made thousands of no-op SendAlert runs

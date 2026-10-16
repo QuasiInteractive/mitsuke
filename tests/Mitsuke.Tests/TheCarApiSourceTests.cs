@@ -21,6 +21,26 @@ public class TheCarApiSourceTests
     }
 
     [Fact]
+    public void A_best_few_search_asks_for_one_chassis_code_under_the_mileage_cheapest_first()
+    {
+        var q = R32 with { ModelCodes = ["BNR32"], MaxMileageKm = 120_000, CheapestFirst = true, Limit = 50 };
+        Assert.Equal(
+            "/api/search?site=japan&brand=Nissan&model_code=BNR32&kilometers_to=120000&sort=price_low&production_year_from=1989&production_year_to=1994&limit=50&offset=0",
+            TheCarApiSource.BuildSearchUrl(q, offset: 0, limit: 50));
+    }
+
+    [Fact]
+    public void A_watchlist_searches_its_codes_one_by_one_unless_there_are_too_many()
+    {
+        var few = new Watchlist { Id = Guid.NewGuid(), Name = "Evo", Make = "Mitsubishi", Model = "Lancer Evolution", ModelCodes = new HashSet<string> { "CT9W", "CT9A" } };
+        Assert.Equal(["CT9A", "CT9W"], few.ToSourceQuery().ModelCodes);
+        Assert.True(few.ToSourceQuery().CheapestFirst);
+
+        var many = few with { ModelCodes = new HashSet<string> { "HZJ76K", "HZJ76V", "HZJ77HV", "HZJ74K" } };
+        Assert.Null(many.ToSourceQuery().ModelCodes); // one search for the model beats four
+    }
+
+    [Fact]
     public void Search_url_escapes_values()
     {
         Assert.Contains("brand=Mercedes%20Benz&model=C%26D", TheCarApiSource.BuildSearchUrl(new SourceQuery("Mercedes Benz", "C&D"), 0, 10), StringComparison.Ordinal);
