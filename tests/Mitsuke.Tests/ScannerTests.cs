@@ -106,6 +106,23 @@ public sealed class ScannerTests(PostgresFixture pg) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Only_the_two_best_priced_matches_are_alerted()
+    {
+        List<decimal> opening = [5_000_000m, 3_000_000m, 4_000_000m, 2_500_000m];
+        _source.Lots = opening.Select((yen, i) => Lot($"gtr-{i}") with { Price = new Money(yen, "JPY") }).ToList();
+        var watchlist = (await new PostgresWatchlistStore(pg.Db).GetActiveAsync()).Single();
+        var collector = new Collector([_source], new PostgresListingStore(pg.Db), Landed.Estimator, new FakeTimeProvider(Now),
+            NullLogger<Collector>.Instance, options: new CollectorOptions(MaxNewAlertsPerRun: 2));
+
+        var result = await collector.CollectAsync(watchlist);
+
+        var store = new PostgresListingStore(pg.Db);
+        var prices = new List<decimal>();
+        foreach (var m in result.Matches) prices.Add((await store.GetAsync(m.ListingId))!.Price!.Value.Amount);
+        Assert.Equal([2_500_000m, 3_000_000m], prices.Order());
+    }
+
+    [Fact]
     public async Task One_lot_listed_twice_is_alerted_once_through_its_priced_copy()
     {
         var unpriced = Lot("copy-a") with { LotNumber = "58212", Price = null };

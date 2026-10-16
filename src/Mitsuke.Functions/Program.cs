@@ -26,6 +26,8 @@ builder.Services.AddMitsukePricing();
 builder.Services.AddTheCarApiSource(builder.Configuration);
 builder.Services.AddMitsukeNotifications(builder.Configuration);
 builder.Services.AddKensayaSheetDecoding(builder.Configuration);
+// The two best-priced new matches per watchlist per run (Nick, 16 Oct 2026): fewer, better alerts on a small data allowance.
+builder.Services.AddSingleton(new CollectorOptions(MaxNewAlertsPerRun: int.TryParse(builder.Configuration["MAX_NEW_ALERTS_PER_RUN"], out var maxAlerts) ? maxAlerts : 2));
 builder.Services.AddSingleton<Collector>();
 builder.Services.AddSingleton<AlertSender>();
 builder.Services.AddSingleton<DetailsRefresher>();

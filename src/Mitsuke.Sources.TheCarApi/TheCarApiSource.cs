@@ -41,7 +41,21 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
     public IAsyncEnumerable<Listing> SearchAsync(SourceQuery query, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(query);
-        return AcrossModelNamesAsync(query, (q, offset, limit) => BuildSearchUrl(q, offset, limit), cancellationToken);
+        return query.ModelCodes is { Count: > 0 } codes
+            ? ByCodeAsync(query, codes, cancellationToken)
+            : AcrossModelNamesAsync(query, (q, offset, limit) => BuildSearchUrl(q, offset, limit), cancellationToken);
+    }
+
+    /// <summary>One search per chassis code. The code alone picks the car, so model-name aliases (Lancer / Lancer Evolution) don't double it.</summary>
+    private async IAsyncEnumerable<Listing> ByCodeAsync(SourceQuery query, IReadOnlyList<string> codes, [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var seen = new HashSet<ListingKey>();
+        foreach (var code in codes)
+        {
+            var q = query with { ModelCodes = [code] };
+            await foreach (var listing in PagedAsync(q, (offset, limit) => BuildSearchUrl(q, offset, limit), cancellationToken))
+                if (seen.Add(listing.Key)) yield return listing;
+        }
     }
 
     /// <summary>Runs the search once per model name in the query's group, yielding each lot once.</summary>
@@ -71,11 +85,14 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
         SourceQuery query, Func<int, int, string> buildUrl, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var opts = options.Value;
+        // A "best few" search is one page by design; a full search pages up to the cap.
+        var pageSize = query.Limit is { } l ? Math.Min(l, opts.PageSize) : opts.PageSize;
+        var maxPages = query.Limit is null ? opts.MaxPagesPerSearch : 1;
 
-        for (var page = 0; page < opts.MaxPagesPerSearch; page++)
+        for (var page = 0; page < maxPages; page++)
         {
-            var offset = page * opts.PageSize;
-            var url = buildUrl(offset, opts.PageSize);
+            var offset = page * pageSize;
+            var url = buildUrl(offset, pageSize);
 
             using var response = await http.GetAsync(url, cancellationToken);
             var requestId = response.Headers.TryGetValues("X-Request-ID", out var ids) ? ids.FirstOrDefault() : null;
@@ -99,8 +116,8 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
                     LogSkippedRow(logger, row.AuctionIdStr);
             }
 
-            var reachedEnd = result.Results.Count < opts.PageSize || (result.Total is { } total && offset + result.Results.Count >= total);
-            if (reachedEnd) yield break;
+            var reachedEnd = result.Results.Count < pageSize || (result.Total is { } total && offset + result.Results.Count >= total);
+            if (reachedEnd || query.Limit is not null) yield break;
         }
 
         LogPageCapHit(logger, opts.MaxPagesPerSearch, query.Make, query.Model);
@@ -141,8 +158,12 @@ public sealed partial class TheCarApiSource(HttpClient http, IOptions<TheCarApiO
         {
             "site=japan",
             $"brand={Uri.EscapeDataString(query.Make)}",
-            $"model={Uri.EscapeDataString(query.Model)}",
         };
+        // A chassis code identifies the car on its own; leaving the model out also sidesteps the feed's model aliases.
+        if (query.ModelCodes is [var code]) parts.Add($"model_code={Uri.EscapeDataString(code)}");
+        else parts.Add($"model={Uri.EscapeDataString(query.Model)}");
+        if (query.MaxMileageKm is { } km) parts.Add(string.Create(CultureInfo.InvariantCulture, $"kilometers_to={km}"));
+        if (query.CheapestFirst) parts.Add("sort=price_low");
         // Production year, not registration year: imports are often registered years after they were built.
         if (query.YearFrom is { } from) parts.Add(string.Create(CultureInfo.InvariantCulture, $"production_year_from={from}"));
         if (query.YearTo is { } to) parts.Add(string.Create(CultureInfo.InvariantCulture, $"production_year_to={to}"));
